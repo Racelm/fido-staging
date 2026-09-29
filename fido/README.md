@@ -20,6 +20,7 @@ Plateforme SaaS de collaboration fiduciaires ↔ clients (Maroc).
 - Versionnement automatique des documents (même nom → v2, v3…)
 - Messagerie multi-tenant strict (RLS combinée)
 - Journal d’audit `audit_events` accessible aux owners (traçabilité loi 09-08)
+- **Échéances fiscales MA** : TVA / IS / IR / CNSS / taxe pro auto-générées + rappels J-7 par e-mail
 - Rate-limiting sur `/invite/[token]`
 
 ## Démarrage
@@ -35,10 +36,11 @@ cp .env.example .env.local
 #   supabase/migrations/002b_client_invitations.sql
 #   supabase/migrations/003_production_workflow.sql
 #   supabase/migrations/004_hardening.sql
-#   supabase/migrations/20260911000000_phase1_auth.sql
 #   supabase/migrations/005_refonte.sql
+#   supabase/migrations/006_fiscal_deadlines.sql
+#   supabase/migrations/20260911000000_phase1_auth.sql
 
-# Seed de test (1 cabinet, 3 clients, 5 demandes chacun)
+# Seed de test (1 cabinet, 3 clients, 5 demandes + ~30 échéances chacun)
 pnpm dlx tsx scripts/seed.ts
 
 pnpm dev
@@ -60,11 +62,13 @@ app/
   client/             → Espace client (mono-client)
   documents/          → Vue globale documents (staff)
   requests/           → Vue globale demandes (staff)
+  deadlines/          → Vue globale échéances fiscales (staff)
   messages/           → Vue globale messages (staff)
   notifications/      → Notifications utilisateur
   audit/              → Journal audit (owner only)
   invite/[token]/     → Onboarding client via lien signé
   settings/           → Paramètres cabinet
+  api/cron/           → Endpoints cron (rappels J-7)
   actions/            → Server actions (auth, clients, documents,
                         invitations, invite, messages, requests)
 
@@ -84,4 +88,6 @@ scripts/
 
 docs/
   REFONTE.md          → Documentation détaillée de la refonte
+  DEPLOY.md           → Guide déploiement Vercel + Supabase
+vercel.json           → Config Vercel Cron (rappels J-7)
 ```

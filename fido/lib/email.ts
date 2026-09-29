@@ -302,3 +302,61 @@ export function newMessageTemplate(params: {
     ),
   }
 }
+
+const OBLIGATION_LABEL_FR: Record<string, string> = {
+  tva_mensuel: 'Déclaration TVA mensuelle',
+  tva_trimestriel: 'Déclaration TVA trimestrielle',
+  is_acompte: 'Acompte IS',
+  is_solde: 'Solde IS annuel',
+  ir_professionnel: 'Déclaration IR professionnelle',
+  cnss_mensuel: 'Déclaration CNSS mensuelle',
+  taxe_professionnelle: 'Taxe professionnelle',
+}
+
+export function deadlineReminderTemplate(params: {
+  recipientName: string
+  clientCompany: string
+  cabinetName: string
+  obligation: string
+  periodLabel: string
+  dueDate: string // YYYY-MM-DD
+  appUrl: string
+  appName: string
+  audience: 'client' | 'staff'
+}): { subject: string; html: string } {
+  const label = OBLIGATION_LABEL_FR[params.obligation] || params.obligation
+  const formattedDate = new Date(params.dueDate + 'T00:00:00Z').toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+  const subject =
+    params.audience === 'client'
+      ? `Rappel — ${label} à préparer avant le ${formattedDate}`
+      : `Rappel J-7 : ${params.clientCompany} — ${label}`
+
+  const bodyClient = `
+    <p>Bonjour ${escapeHtml(params.recipientName)},</p>
+    <p>Votre cabinet <strong>${escapeHtml(params.cabinetName)}</strong> vous rappelle que la <strong>${escapeHtml(label)}</strong> (${escapeHtml(params.periodLabel)}) est à préparer avant le <strong>${escapeHtml(formattedDate)}</strong>.</p>
+    <p>Pensez à téléverser les documents nécessaires dans votre espace :</p>
+    <p style="text-align:center;margin:20px 0">
+      <a href="${params.appUrl}" style="display:inline-block;padding:12px 20px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600">Ouvrir mon espace ${escapeHtml(params.appName)}</a>
+    </p>
+    <p style="font-size:13px;color:#64748b">Ce rappel est envoyé automatiquement 7 jours avant la date limite.</p>
+  `
+  const bodyStaff = `
+    <p>Bonjour,</p>
+    <p>Rappel automatique J-7 : le client <strong>${escapeHtml(params.clientCompany)}</strong> a l'échéance <strong>${escapeHtml(label)}</strong> (${escapeHtml(params.periodLabel)}) fixée au <strong>${escapeHtml(formattedDate)}</strong>.</p>
+    <p><a href="${params.appUrl}">Consulter l'échéance dans Fido</a></p>
+  `
+  return {
+    subject,
+    html: baseLayout(
+      params.audience === 'client' ? bodyClient : bodyStaff,
+      params.appName,
+      `Ce rappel a été généré automatiquement par ${params.appName} pour ${escapeHtml(params.cabinetName)}.`
+    ),
+  }
+}
+

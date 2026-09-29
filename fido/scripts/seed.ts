@@ -145,6 +145,17 @@ async function main() {
       if (reqErr) throw reqErr
       console.log(`    ✓ 5 demandes créées`)
     }
+
+    // 5. Générer les échéances fiscales de l'année en cours
+    const { data: generated, error: genErr } = await admin.rpc(
+      'generate_fiscal_deadlines_for_client',
+      { target_client: clientId, year_ref: new Date().getFullYear() }
+    )
+    if (genErr) {
+      console.warn(`    ⚠ Génération échéances échouée : ${genErr.message}`)
+    } else if ((generated ?? 0) > 0) {
+      console.log(`    ✓ ${generated} échéances fiscales générées`)
+    }
   }
 
   console.log('\n✅ Seed terminé.')

@@ -59,6 +59,7 @@ export default async function DashboardPage() {
           <Link href="/clients" data-testid="nav-clients">♙ &nbsp; Clients</Link>
           <Link href="/documents" data-testid="nav-documents">▣ &nbsp; Documents</Link>
           <Link href="/requests" data-testid="nav-requests">✓ &nbsp; À traiter</Link>
+          <Link href="/deadlines" data-testid="nav-deadlines">◷ &nbsp; Échéances</Link>
           <Link href="/messages" data-testid="nav-messages">✉ &nbsp; Messages</Link>
           <Link href="/notifications" data-testid="nav-notifications">● &nbsp; Notifications</Link>
           <Link href="/settings" data-testid="nav-settings">⚙ &nbsp; Paramètres</Link>

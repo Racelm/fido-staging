@@ -28,7 +28,7 @@ catégorisation Maroc) pour permettre un test réel avec un fiduciaire.
 5. Audit trail (loi 09-08)
 6. Emails transactionnels (invitations)
 
-## What's been implemented (2026-01-28)
+## What's been implemented (2026-01-28 → 2026-01-29)
 - [x] Auth SSR réactivée (middleware, login, signup, invite) — C1/C2/C3
 - [x] Fix RLS documents INSERT (uploaded_by = auth.uid) — C4
 - [x] Fix RLS storage : chemin `{org}/{client}/*` contraint et cross-check tenant — C5
@@ -42,11 +42,17 @@ catégorisation Maroc) pour permettre un test réel avec un fiduciaire.
 - [x] Colonnes fiduciaires : ICE, IF, RC, CNSS, patente, exercice, période TVA
 - [x] Contraintes DB : taille ≤ 25 Mo, MIME whitelist
 - [x] Bulk upload + drag & drop (ClientUpload.tsx)
-- [x] `lib/email.ts` avec guardrails G1–G5 + templates invitation / doc reçu / message
+- [x] `lib/email.ts` avec guardrails G1–G5 + templates invitation / doc reçu / message / rappel échéance
 - [x] Rate-limiter (`/invite/[token]` : 10 essais / 5 min / IP)
-- [x] Seed script (1 cabinet + 3 clients MA + 5 demandes chacun)
+- [x] Seed script (1 cabinet + 3 clients MA + 5 demandes chacun + ~30 échéances chacun)
 - [x] Helper `firstRel` pour normaliser jointures Supabase
-- [x] Build Next.js validé (14 routes, 0 erreur TypeScript)
+- [x] Build Next.js validé (16 routes, 0 erreur TypeScript)
+- [x] **Échéances fiscales MA** (migration 006) : table + enums + RPC `generate_fiscal_deadlines_for_client` (TVA / IS acomptes+solde / IR / CNSS / taxe pro) + vue `upcoming_deadlines`
+- [x] **Page `/deadlines`** avec pills couleur due-overdue/soon/month/later + action "Marquer traité"
+- [x] **ClientForm enrichie** : ICE / IF / RC / CNSS / période TVA / début d'exercice → auto-génération 12 mois d'échéances à la création
+- [x] **Cron J-7** `/api/cron/deadline-reminders` : e-mail client + CC staff, protégé par `CRON_SECRET`, marque `reminded_at` (idempotent)
+- [x] **`vercel.json`** avec cron quotidien `0 8 * * *`
+- [x] **`docs/DEPLOY.md`** : guide complet Vercel + Supabase (30 min)
 
 ## Files touched / created
 - `middleware.ts`, `lib/supabase/middleware.ts` (nouveau)
@@ -67,14 +73,14 @@ catégorisation Maroc) pour permettre un test réel avec un fiduciaire.
 ## Prioritized backlog (P0 → P2)
 
 **P0 — avant le vrai test fiduciaire**
-- Fournir credentials Supabase de staging + faire tourner les 7 migrations + seed
-- Configurer `EMERGENT_EMAIL_KEY` et `NEXT_PUBLIC_APP_URL` réel
-- Déployer sur Vercel Preview (Hostinger n’est pas recommandé pour Next.js SSR)
+- Fournir credentials Supabase de staging + faire tourner les 8 migrations + seed
+- Configurer `EMERGENT_EMAIL_KEY`, `NEXT_PUBLIC_APP_URL`, `CRON_SECRET`
+- Déployer sur Vercel Preview (guide dans `docs/DEPLOY.md`, Hostinger n’est pas recommandé)
 
 **P1 — après premier retour fiduciaire**
+- Antivirus upload (VirusTotal/ClamAV) — reporté à la demande utilisateur
 - 2FA (Supabase Auth MFA) pour owner/staff
-- Virus scan uploads (Edge Function → ClamAV/VirusTotal)
-- Notifications e-mail temps réel (staff via service role admin API)
+- Notifications e-mail temps réel enrichies (staff via service role admin API)
 - Export loi 09-08 (données + fichiers) et bouton d’anonymisation
 
 **P2 — évolution**

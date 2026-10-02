@@ -96,11 +96,12 @@ export function defaultNav(role: string, unreadMessages = 0): NavItem[] {
     { href: '/requests', label: 'Demandes', icon: NAV_ICONS.requests },
     { href: '/documents', label: 'Documents', icon: NAV_ICONS.documents },
     { href: '/deadlines', label: 'Échéances', icon: NAV_ICONS.deadlines },
+    { href: '/team', label: 'Équipe', icon: NAV_ICONS.team },
     { href: '/messages', label: 'Messages', icon: NAV_ICONS.messages, badge: unreadMessages },
     { href: '/settings', label: 'Paramètres', icon: NAV_ICONS.settings },
   ]
   if (role === 'owner') {
-    items.splice(6, 0, { href: '/audit', label: 'Journal d’audit', icon: NAV_ICONS.audit })
+    items.splice(7, 0, { href: '/audit', label: 'Journal d’audit', icon: NAV_ICONS.audit })
   }
   return items
 }

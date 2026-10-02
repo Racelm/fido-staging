@@ -53,6 +53,8 @@ catégorisation Maroc) pour permettre un test réel avec un fiduciaire.
 - [x] **Cron J-7** `/api/cron/deadline-reminders` : e-mail client + CC staff, protégé par `CRON_SECRET`, marque `reminded_at` (idempotent)
 - [x] **`vercel.json`** avec cron quotidien `0 8 * * *`
 - [x] **`docs/DEPLOY.md`** : guide complet Vercel + Supabase (30 min)
+- [x] **Design "Workspace OS"** : palette violette (#6C5CE7), Plus Jakarta Sans, AppShell + Sidebar partagés, dashboard refait (KPIs colorés, tâches priorisées, rail activités+échéances), toutes pages migrées
+- [x] **Staff invitations** (migration 007) : table `staff_invitations` + RLS owner-only + RPC `claim_staff_invitation` + page `/team` + flow `/invite-staff/[token]` + template e-mail + rate-limit + audit
 
 ## Files touched / created
 - `middleware.ts`, `lib/supabase/middleware.ts` (nouveau)

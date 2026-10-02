@@ -38,6 +38,7 @@ cp .env.example .env.local
 #   supabase/migrations/004_hardening.sql
 #   supabase/migrations/005_refonte.sql
 #   supabase/migrations/006_fiscal_deadlines.sql
+#   supabase/migrations/007_staff_invitations.sql
 #   supabase/migrations/20260911000000_phase1_auth.sql
 
 # Seed de test (1 cabinet, 3 clients, 5 demandes + ~30 échéances chacun)

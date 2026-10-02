@@ -360,3 +360,30 @@ export function deadlineReminderTemplate(params: {
   }
 }
 
+
+export function staffInviteTemplate(params: {
+  inviteeName: string
+  cabinetName: string
+  inviteUrl: string
+  appName: string
+}): { subject: string; html: string } {
+  const subject = `Rejoindre ${params.cabinetName} sur ${params.appName}`
+  const body = `
+    <p>Bonjour ${escapeHtml(params.inviteeName)},</p>
+    <p>Le cabinet <strong>${escapeHtml(params.cabinetName)}</strong> vous invite à rejoindre son espace de collaboration ${escapeHtml(params.appName)} en tant que <strong>collaborateur</strong>.</p>
+    <p>Vous aurez accès aux dossiers clients, demandes documentaires, documents et messagerie du cabinet.</p>
+    <p style="text-align:center;margin:24px 0">
+      <a href="${params.inviteUrl}" style="display:inline-block;padding:12px 20px;background:#6c5ce7;color:#ffffff;text-decoration:none;border-radius:10px;font-weight:600">Activer mon compte</a>
+    </p>
+    <p style="font-size:13px;color:#64748b">Lien valable 7 jours. Si le bouton ne fonctionne pas, copiez ce lien :<br /><a href="${params.inviteUrl}">${params.inviteUrl}</a></p>
+  `
+  return {
+    subject,
+    html: baseLayout(
+      body,
+      params.appName,
+      `Invitation envoyée par ${params.appName} pour le compte de ${escapeHtml(params.cabinetName)}. Nous ne vous demanderons jamais de mot de passe par e-mail.`
+    ),
+  }
+}
+

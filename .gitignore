@@ -85,3 +85,9 @@ android-sdk/
 **/.emergent/recordings/
 .pnpm-store/v11/files/ae/7ebdc3c03c10cd3636413f335d8128a438ec5e6f25d2c8be0af396bebf999cea4de4405551099b64230c7ef258f9e6c4ac0a442ca3e178b7c2cb5e8daefdd5
 fido/node_modules/.pnpm/@next+swc-linux-arm64-gnu@15.5.0/node_modules/@next/swc-linux-arm64-gnu/next-swc.linux-arm64-gnu.node
+.env
+.env.*
+*.env
+credentials.json
+*.key
+.credentials

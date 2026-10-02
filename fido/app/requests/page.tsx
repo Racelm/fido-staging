@@ -1,7 +1,8 @@
-import { firstRel } from '@/lib/rel'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { firstRel } from '@/lib/rel'
 import { createClient } from '@/lib/supabase/server'
+import AppShell, { NAV_ICONS } from '@/components/AppShell'
 
 export default async function RequestsPage() {
   const supabase = await createClient()
@@ -24,79 +25,79 @@ export default async function RequestsPage() {
     .order('created_at', { ascending: false })
     .limit(100)
 
+  const pill = (status: string, dueDate: string | null) => {
+    if (status === 'processed') return { label: 'Traité', cls: 'pill-green' }
+    if (status === 'received') return { label: 'En cours', cls: 'pill-blue' }
+    if (!dueDate) return { label: 'Planifié', cls: 'pill-gray' }
+    const diff = Math.round((new Date(dueDate + 'T00:00:00Z').getTime() - Date.now()) / 86400000)
+    if (diff < 0) return { label: 'En retard', cls: 'pill-red' }
+    if (diff === 0) return { label: 'Aujourd’hui', cls: 'pill-orange' }
+    if (diff <= 3) return { label: `J-${diff}`, cls: 'pill-orange' }
+    return { label: 'En attente', cls: 'pill-gray' }
+  }
+
   return (
-    <main className="app" data-testid="requests-page">
-      <aside className="sidebar">
-        <div className="brand">
-          Fido<span>.</span>
-        </div>
-        <nav className="nav">
-          <Link href="/">⌂ &nbsp; Tableau de bord</Link>
-          <Link href="/clients">♙ &nbsp; Clients</Link>
-          <Link href="/documents">▣ &nbsp; Documents</Link>
-          <Link className="active" href="/requests">✓ &nbsp; À traiter</Link>
-          <Link href="/messages">✉ &nbsp; Messages</Link>
-          <Link href="/settings">⚙ &nbsp; Paramètres</Link>
-        </nav>
-      </aside>
-      <section className="main">
-        <header className="topbar">
+    <AppShell
+      active="/requests"
+      profile={profile}
+      title="Demandes"
+      welcome={`${requests?.length || 0} demande(s) suivie(s)`}
+    >
+      <section className="card">
+        <div className="section-head">
           <div>
-            <div className="eyebrow">{firstRel(profile.organizations)?.name}</div>
-            <h1 className="title">À traiter</h1>
-            <p className="muted">Une vue unique des demandes documentaires en cours.</p>
+            <h2 className="section-title">Toutes les demandes</h2>
+            <p className="section-sub">Triées par date de création</p>
           </div>
-          <div className="user">
-            <span>{profile.full_name || 'Utilisateur'}</span>
-            <div className="avatar">
-              {(profile.full_name || 'U').charAt(0).toUpperCase()}
-            </div>
-          </div>
-        </header>
-        <section className="card">
-          <div className="section-header">
-            <div>
-              <div className="section-title">Demandes</div>
-              <p className="muted">{requests?.length || 0} demande(s)</p>
-            </div>
-          </div>
-          {requests?.length ? (
-            <div className="request-list" data-testid="request-list">
-              {requests.map((r) => (
-                <Link
-                  className="request-card request-link"
-                  href={`/clients/${firstRel(r.clients)?.id}`}
-                  key={r.id}
-                >
-                  <div>
-                    <strong>{r.title}</strong>
-                    <p className="muted">{firstRel(r.clients)?.company_name || 'Client'}</p>
-                  </div>
-                  <div className="request-actions">
-                    <span className={`status ${r.status === 'pending' ? 'status-invited' : ''}`}>
-                      {r.status === 'pending'
-                        ? 'En attente'
-                        : r.status === 'received'
-                          ? 'Reçu'
-                          : 'Traité'}
-                    </span>
-                    <span className="muted">
+        </div>
+        {requests?.length ? (
+          <table className="audit-table">
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>Demande</th>
+                <th>Statut</th>
+                <th>Échéance</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {requests.map((r) => {
+                const client = firstRel(r.clients)
+                const p = pill(r.status, r.due_date)
+                return (
+                  <tr key={r.id}>
+                    <td style={{ fontWeight: 600 }}>{client?.company_name || 'Client'}</td>
+                    <td>{r.title}</td>
+                    <td>
+                      <span className={`pill ${p.cls}`}>{p.label}</span>
+                    </td>
+                    <td>
                       {r.due_date
-                        ? new Date(r.due_date).toLocaleDateString('fr-FR')
-                        : 'Sans échéance'}
-                    </span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="empty-state">
-              <strong>Tout est à jour</strong>
-              <span>Aucune demande documentaire en cours.</span>
-            </div>
-          )}
-        </section>
+                        ? new Date(r.due_date + 'T00:00:00Z').toLocaleDateString('fr-FR')
+                        : '—'}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <Link
+                        href={`/clients/${client?.id}`}
+                        className="btn-ghost"
+                        style={{ fontSize: 13 }}
+                      >
+                        Ouvrir {NAV_ICONS.arrow}
+                      </Link>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        ) : (
+          <div className="empty-state">
+            <strong>Tout est à jour</strong>
+            <span>Aucune demande en cours.</span>
+          </div>
+        )}
       </section>
-    </main>
+    </AppShell>
   )
 }

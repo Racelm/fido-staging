@@ -58,8 +58,8 @@ export default function InvitePage({
   return (
     <main className="auth-page">
       <section className="auth-card" data-testid="invite-card">
-        <div className="brand auth-brand">
-          Fido<span>.</span>
+        <div className="auth-brand">
+          <span className="logo">F</span>Fido
         </div>
         <p className="eyebrow">Invitation client</p>
         <h1>Rejoindre votre espace</h1>

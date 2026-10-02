@@ -13,8 +13,8 @@ export default async function SignupPage() {
   return (
     <main className="auth-page">
       <section className="auth-card" data-testid="signup-card">
-        <div className="brand auth-brand">
-          Fido<span>.</span>
+        <div className="auth-brand">
+          <span className="logo">F</span>Fido
         </div>
         <p className="eyebrow">Nouveau cabinet</p>
         <h1>Créer votre cabinet</h1>

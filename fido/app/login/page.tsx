@@ -26,8 +26,8 @@ export default async function LoginPage({
   return (
     <main className="auth-page">
       <section className="auth-card" data-testid="login-card">
-        <div className="brand auth-brand">
-          Fido<span>.</span>
+        <div className="auth-brand">
+          <span className="logo">F</span>Fido
         </div>
         <p className="eyebrow">Espace fiduciaire</p>
         <h1>Connexion cabinet</h1>

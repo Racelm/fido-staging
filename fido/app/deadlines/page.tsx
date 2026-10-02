@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { firstRel } from '@/lib/rel'
 import { createClient } from '@/lib/supabase/server'
+import AppShell from '@/components/AppShell'
 import { markDeadlineCompleted } from '@/app/actions/clients'
 
 const OBLIGATION_LABEL: Record<string, string> = {
@@ -15,13 +16,13 @@ const OBLIGATION_LABEL: Record<string, string> = {
 }
 
 function dueClass(dueDate: string): string {
-  const d = new Date(dueDate + 'T00:00:00Z').getTime()
-  const now = Date.now()
-  const diffDays = Math.round((d - now) / 86400000)
-  if (diffDays < 0) return 'due-overdue'
-  if (diffDays <= 7) return 'due-soon'
-  if (diffDays <= 30) return 'due-month'
-  return 'due-later'
+  const diffDays = Math.round(
+    (new Date(dueDate + 'T00:00:00Z').getTime() - Date.now()) / 86400000
+  )
+  if (diffDays < 0) return 'pill-red'
+  if (diffDays <= 7) return 'pill-orange'
+  if (diffDays <= 30) return 'pill-blue'
+  return 'pill-green'
 }
 
 async function completeAction(formData: FormData) {
@@ -55,120 +56,85 @@ export default async function DeadlinesPage() {
     .limit(200)
 
   return (
-    <main className="app" data-testid="deadlines-page">
-      <aside className="sidebar">
-        <div className="brand">
-          Fido<span>.</span>
-        </div>
-        <nav className="nav">
-          <Link href="/">⌂ &nbsp; Tableau de bord</Link>
-          <Link href="/clients">♙ &nbsp; Clients</Link>
-          <Link href="/documents">▣ &nbsp; Documents</Link>
-          <Link href="/requests">✓ &nbsp; À traiter</Link>
-          <Link className="active" href="/deadlines">◷ &nbsp; Échéances</Link>
-          <Link href="/messages">✉ &nbsp; Messages</Link>
-          <Link href="/notifications">● &nbsp; Notifications</Link>
-          {profile.role === 'owner' && (
-            <Link href="/audit">◉ &nbsp; Journal d’audit</Link>
-          )}
-          <Link href="/settings">⚙ &nbsp; Paramètres</Link>
-        </nav>
-      </aside>
-      <section className="main">
-        <header className="topbar">
+    <AppShell
+      active="/deadlines"
+      profile={profile}
+      title="Échéances fiscales"
+      welcome="Vue consolidée DGI / CNSS · rappels J-7 automatiques"
+    >
+      <section className="card">
+        <div className="section-head">
           <div>
-            <div className="eyebrow">{firstRel(profile.organizations)?.name}</div>
-            <h1 className="title">Échéances fiscales</h1>
-            <p className="muted">
-              Vue consolidée DGI / CNSS · rappels J-7 automatiques par e-mail
-            </p>
+            <h2 className="section-title">À venir</h2>
+            <p className="section-sub">{deadlines?.length || 0} échéance(s) en attente</p>
           </div>
-          <div className="user">
-            <span>{profile.full_name || 'Utilisateur'}</span>
-            <div className="avatar">
-              {(profile.full_name || 'U').charAt(0).toUpperCase()}
-            </div>
+        </div>
+        {deadlines?.length ? (
+          <table className="audit-table" data-testid="deadlines-table">
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>Obligation</th>
+                <th>Période</th>
+                <th>Échéance</th>
+                <th>Rappel</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {deadlines.map((d) => {
+                const client = firstRel(d.clients)
+                const dueDate = d.due_date as string
+                return (
+                  <tr key={d.id}>
+                    <td style={{ fontWeight: 600 }}>
+                      <Link href={`/clients/${client?.id}`}>{client?.company_name || 'Client'}</Link>
+                    </td>
+                    <td>{OBLIGATION_LABEL[d.obligation] || d.obligation}</td>
+                    <td>{d.period_label}</td>
+                    <td>
+                      <span className={`pill ${dueClass(dueDate)}`}>
+                        {new Date(dueDate + 'T00:00:00Z').toLocaleDateString('fr-FR', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </span>
+                    </td>
+                    <td>
+                      {d.reminded_at ? (
+                        <span className="pill pill-green">envoyé</span>
+                      ) : (
+                        <span className="muted">—</span>
+                      )}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <form action={completeAction}>
+                        <input type="hidden" name="id" value={d.id} />
+                        <button
+                          type="submit"
+                          className="btn-secondary"
+                          data-testid={`complete-${d.id}`}
+                        >
+                          Marquer traité
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        ) : (
+          <div className="empty-state">
+            <strong>Aucune échéance en attente</strong>
+            <span>
+              Les échéances sont générées automatiquement lors de la création d’un client
+              (période TVA + début d’exercice).
+            </span>
           </div>
-        </header>
-
-        <section className="card">
-          <div className="section-header">
-            <div>
-              <div className="section-title">À venir</div>
-              <p className="muted">{deadlines?.length || 0} échéance(s) en attente</p>
-            </div>
-          </div>
-          {deadlines?.length ? (
-            <table className="audit-table" data-testid="deadlines-table">
-              <thead>
-                <tr>
-                  <th>Client</th>
-                  <th>Obligation</th>
-                  <th>Période</th>
-                  <th>Échéance</th>
-                  <th>Rappel</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {deadlines.map((d) => {
-                  const client = firstRel(d.clients)
-                  const dueDate = d.due_date as string
-                  return (
-                    <tr key={d.id}>
-                      <td>
-                        <Link href={`/clients/${client?.id}`}>
-                          {client?.company_name || 'Client'}
-                        </Link>
-                      </td>
-                      <td>{OBLIGATION_LABEL[d.obligation] || d.obligation}</td>
-                      <td>{d.period_label}</td>
-                      <td>
-                        <span className={`due-pill ${dueClass(dueDate)}`}>
-                          {new Date(dueDate + 'T00:00:00Z').toLocaleDateString('fr-FR', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric',
-                          })}
-                        </span>
-                      </td>
-                      <td>
-                        {d.reminded_at ? (
-                          <span className="muted" title={d.reminded_at}>
-                            envoyé
-                          </span>
-                        ) : (
-                          <span className="muted">—</span>
-                        )}
-                      </td>
-                      <td>
-                        <form action={completeAction}>
-                          <input type="hidden" name="id" value={d.id} />
-                          <button
-                            type="submit"
-                            className="secondary"
-                            data-testid={`complete-${d.id}`}
-                          >
-                            Marquer traité
-                          </button>
-                        </form>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          ) : (
-            <div className="empty-state">
-              <strong>Aucune échéance en attente</strong>
-              <span>
-                Les échéances sont générées automatiquement lors de la création d’un client
-                (période TVA + début d’exercice).
-              </span>
-            </div>
-          )}
-        </section>
+        )}
       </section>
-    </main>
+    </AppShell>
   )
 }

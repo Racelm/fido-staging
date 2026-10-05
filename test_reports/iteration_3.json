@@ -1,0 +1,34 @@
+{
+  "summary": "Static code review + build verification of the iteration_2 HIGH fix (Supabase native invite PKCE callback). All checks pass: tsc --noEmit = 0 errors; next build succeeds with both /auth/callback AND /auth/confirm listed as dynamic (ƒ) routes. The end-to-end flow is logically correct: inviteUserByEmail(redirectTo=`${appUrl}/auth/callback?next=%2Finvite%2F<token>`) → Supabase /auth/v1/verify → our /auth/callback exchanges the ?code for a session (cookies set) → redirects to /invite/<token> → InvitePage useEffect sees authenticated user → mode='authed-set-password'. Middleware PUBLIC_PATHS already whitelists '/auth' so /auth/callback is publicly reachable. The .catch fallback on invite page correctly degrades to 'needs-password' on getUser throw. No regression detected on /login, /signup, /team, ClientForm copy-link UI.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/app/fido/app/auth/callback/route.ts L39", "issue": "safeNext sanitization only checks startsWith('/'). A protocol-relative URL like '//evil.com/path' would pass this check and could allow open redirect via `${origin}//evil.com/path`. Harden with: `next.startsWith('/') && !next.startsWith('//')`."},
+      {"endpoint": "/app/fido/app/auth/callback/route.ts L19-25", "issue": "When error_description param is present, we redirect to /login without first attempting the code exchange. Fine, but we silently drop a potentially-still-valid `code`. Low risk."},
+      {"endpoint": "/app/fido/app/invite/[token]/page.tsx L23-37", "issue": "On .catch fallback we silently drop the error — user sees needs-password with no indication their session failed. Could setError('Impossible de vérifier la session, créez un mot de passe.') to improve UX, but not blocking."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [],
+  "action_items": [
+    "LOW (optional hardening): tighten safeNext in /auth/callback/route.ts to reject protocol-relative URLs (`!next.startsWith('//')`) to close a theoretical open-redirect vector.",
+    "LOW (UX polish): expose the catch-branch error on invite page (toast / setError) rather than silently falling back."
+  ],
+  "critical_code_review_comments": [
+    "iteration_2 HIGH issue is RESOLVED. The new /app/fido/app/auth/callback/route.ts correctly exchanges the PKCE ?code via supabase.auth.exchangeCodeForSession(code), writes cookies via the server client, and 302s to the sanitized `next`. This makes mode='authed-set-password' actually reachable from a vanilla Supabase project.",
+    "invitations.ts L63 redirectTo uses encodeURIComponent(params.nextRedirect) so the inner slash of '/invite/<token>' is encoded to %2F — Supabase will NOT truncate the path, and our callback handler will decode it correctly via URLSearchParams. Verified mentally with a URL round-trip. ✓",
+    "Middleware PUBLIC_PATHS includes '/auth' and isPublic uses startsWith(p + '/') so '/auth/callback' resolves as public without the inner redirect loop. ✓",
+    "invite page .catch(() => setMode('needs-password')) handles the described edge case (network / malformed cookie) so the UI no longer stuck in 'checking' indefinitely.",
+    "Both /auth/callback and /auth/confirm remain available: /auth/confirm handles the token_hash+verifyOtp email template variant; /auth/callback handles the PKCE code variant (default Supabase invite). This is a sensible belt-and-suspenders setup.",
+    "No business-logic regressions observed in createInvitationInternal (copy-link inviteUrl built independently of the email channel), /login signUp, /team staff invites or ClientForm fallback copy-link UI.",
+    "No files >700 lines; invitations.ts = 192 lines, callback route = 42 lines. Clean, focused modules.",
+    "No MongoDB usage — ObjectId rule N/A. No hardcoded URLs — appUrl() reads NEXT_PUBLIC_APP_URL."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% static+build; HIGH iteration_2 issue confirmed fixed", "frontend": "n/a (backend-only review)"},
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Next.js 15 + Supabase project at /app/fido. tsc=0 errors, next build=19 routes incl. /auth/callback (ƒ) and /auth/confirm (ƒ). The iteration_2 HIGH callback-url mismatch is resolved via the new /auth/callback route + redirectTo rewiring in sendInvitationEmail. No live Supabase available for e2e runtime verification; main agent / human should run one real invite through a Supabase staging project to confirm cookie-session establishment end-to-end, but the static logic is correct.",
+  "rca of the issue": "N/A — iteration_2's RCA (Supabase default invite template routes via PKCE ?code and nothing in our codebase was exchanging that code) is addressed by: (1) adding /auth/callback that calls supabase.auth.exchangeCodeForSession(code), (2) pointing invitation redirectTo through /auth/callback?next=%2Finvite%2F<token>, (3) /auth already whitelisted in middleware PUBLIC_PATHS, (4) invite page .catch fallback for the degraded path."
+}

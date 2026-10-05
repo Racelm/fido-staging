@@ -35,7 +35,8 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  // Sécurité : on n'autorise que des redirections relatives internes.
-  const safeNext = next.startsWith('/') ? next : '/'
+  // Sécurité : on n'autorise que des redirections relatives internes
+  // (rejette aussi //evil.com qui serait protocol-relative).
+  const safeNext = next.startsWith('/') && !next.startsWith('//') ? next : '/'
   return NextResponse.redirect(`${origin}${safeNext}`)
 }

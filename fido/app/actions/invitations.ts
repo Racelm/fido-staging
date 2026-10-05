@@ -58,7 +58,9 @@ async function sendInvitationEmail(params: {
       const admin = createAdminClient(supabaseUrl, serviceKey, {
         auth: { persistSession: false },
       })
-      const redirectTo = `${appUrl()}${params.nextRedirect}`
+      // On passe PAR /auth/callback pour échanger le code PKCE puis
+      // rediriger vers notre page d'invitation custom.
+      const redirectTo = `${appUrl()}/auth/callback?next=${encodeURIComponent(params.nextRedirect)}`
       const { error } = await admin.auth.admin.inviteUserByEmail(params.email, {
         redirectTo,
         data: { cabinet_name: params.cabinetName, invited_by_app: appName },

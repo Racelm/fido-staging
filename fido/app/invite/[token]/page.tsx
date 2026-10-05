@@ -22,15 +22,18 @@ export default function InvitePage({
   // Détecte si l'utilisateur arrive déjà authentifié (flow invitation Supabase native)
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        setEmail(data.user.email || '')
-        setName((data.user.user_metadata?.full_name as string) || '')
-        setMode('authed-set-password')
-      } else {
-        setMode('needs-password')
-      }
-    })
+    supabase.auth
+      .getUser()
+      .then(({ data }) => {
+        if (data.user) {
+          setEmail(data.user.email || '')
+          setName((data.user.user_metadata?.full_name as string) || '')
+          setMode('authed-set-password')
+        } else {
+          setMode('needs-password')
+        }
+      })
+      .catch(() => setMode('needs-password'))
   }, [])
 
   async function submitNewAccount(e: FormEvent) {

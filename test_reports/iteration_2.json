@@ -1,0 +1,42 @@
+{
+  "summary": "Static review + build verification of the Supabase-native invite fallback added on top of iteration_1's graceful fallback. tsc --noEmit = 0 errors. next build = success with 19 routes incl. /auth/confirm and /invite/[token]. Server action signatures, UI messaging and middleware whitelist all align with the request. BUT one subtle correctness issue was spotted around the callback URL that may silently break the Supabase-native invite path in production — details below.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "/app/fido/app/actions/invitations.ts  sendInvitationEmail() L61-65 + /app/fido/app/auth/confirm/route.ts",
+        "issue": "redirectTo is set to `${appUrl}/invite/${rawToken}` so the Supabase email link, after Supabase verifies the invite token, lands the user DIRECTLY on /invite/[token] — the new /auth/confirm route is never traversed. With @supabase/ssr (PKCE flow enabled by default when supabase.auth is configured for SSR), Supabase will append `?code=<code>` (or implicit `#access_token=...` on older projects) to the redirect URL. /invite/[token]/page.tsx only calls supabase.auth.getUser(); it never exchanges the `?code` via supabase.auth.exchangeCodeForSession(code). Result: on a real Supabase project with the default invite email template (which uses {{ .ConfirmationURL }} → /auth/v1/verify + redirect_to), the user will arrive unauthenticated and fall into the 'needs-password' mode instead of 'authed-set-password', defeating the purpose of this iteration. To actually land in /auth/confirm, you must either (a) set redirectTo to `${appUrl}/auth/confirm?next=/invite/${rawToken}` AND customise the Supabase email template to point at `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite&next=/invite/<token>` (recommended for SSR), OR (b) add a /auth/callback route-handler that calls supabase.auth.exchangeCodeForSession(code) and then redirects to `next`. As-is, the authed-set-password branch of /invite/[token] only fires if the user happens to be already logged-in in the same browser, which is an edge case.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": [
+      {"endpoint": "/app/fido/app/auth/confirm/route.ts L30", "issue": "verifyOtp cast narrows `type` to the union but still passes NULL unreachable; fine. Would recommend validating `type` against the allowed union explicitly before the call for defensive programming."},
+      {"endpoint": "/app/fido/app/invite/[token]/page.tsx L25-33", "issue": "The getUser() promise has no .catch; if the Supabase client throws (network / malformed cookie) the UI stays stuck in mode='checking' forever with no error surfaced."},
+      {"endpoint": "/app/fido/app/invite/[token]/page.tsx submitAuthed L72-97", "issue": "If the user leaves the password field empty (allowed by the UI only visually — the <input required minLength=8>) nothing updates the password; works but the UI copy says 'Choisissez un mot de passe' and the field is required so dead branch — safe but misleading."},
+      {"endpoint": "/app/fido/app/clients/[id]/InviteButton.tsx L74-76", "issue": "`emailVia === 'supabase'` branch shown only when emailSent=true; when emailVia === 'emergent' falls through to the generic 'E-mail envoyé au client' — fine. No specific text for emergent, consistent with ClientForm which does distinguish them. Minor inconsistency between the two surfaces."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [],
+  "action_items": [
+    "HIGH: Fix callback flow so the Supabase-native invite actually authenticates the user on arrival. Simplest robust option: change sendInvitationEmail nextRedirect/redirectTo to `${appUrl}/auth/confirm?next=/invite/${rawToken}` AND update the Supabase project's Invite email template to use `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite&next={{ .RedirectTo }}` (document this clearly in the deploy notes). Alternative: add /app/fido/app/auth/callback/route.ts that reads ?code and calls supabase.auth.exchangeCodeForSession(code) then NextResponse.redirect(next); and point redirectTo to `${appUrl}/auth/callback?next=/invite/${rawToken}`.",
+    "LOW: Add .catch on supabase.auth.getUser() in /invite/[token]/page.tsx and fall back to mode='needs-password' with an error toast if getUser throws."
+  ],
+  "critical_code_review_comments": [
+    "sendInvitationEmail priority order (emergent → supabase → none) and the typed return shape are correct and well-isolated.",
+    "createInvitationInternal correctly builds inviteUrl before the email branch so a copy-link fallback is always usable (same guarantee as iteration_1).",
+    "/auth/confirm route handler correctly calls supabase.auth.verifyOtp({type, token_hash}) and redirects to `next` — BUT this handler is unreachable through the Supabase default invite email template; see critical issue above.",
+    "middleware PUBLIC_PATHS includes '/auth' so /auth/confirm is correctly whitelisted. ✅",
+    "InvitePage 3-mode state machine is correctly implemented; mode flips based on getUser() result. The 'authed-set-password' path WILL work IF the user actually arrives authenticated (i.e. after the callback flow is fixed).",
+    "ClientForm displays emailVia distinction (supabase vs resend) in the French copy; InviteButton only distinguishes supabase explicitly — minor cosmetic.",
+    "No breaking regressions: /login signUp (/app/fido/app/signup), cabinet creation trigger, /team staff invitations still compile and build cleanly. 17 pre-rendered pages, 19 total routes.",
+    "No files exceed 700 lines; invitations.ts is 189 lines. DRY: email channel decision is centralised in sendInvitationEmail.",
+    "No MongoDB usage — ObjectId rule N/A."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% static+build; 1 HIGH logical issue flagged", "frontend": "n/a (backend-only review)"},
+  "seed_data_creation": "none",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Next.js 15 + Supabase project at /app/fido. No live Supabase. Build verified via `cd /app/fido && pnpm exec next build` (needs .env.local; copy from .env.example). The HIGH-priority finding is a Supabase email-template/callback-URL mismatch: the redirectTo passed to admin.inviteUserByEmail bypasses /auth/confirm — user lands on /invite/[token]?code=... and the page never exchanges the code. Main agent must either rewire redirectTo through /auth/confirm (and customise the Supabase email template to the token_hash scheme) or add a /auth/callback route doing exchangeCodeForSession.",
+  "rca of the issue": "Supabase's default invite email uses {{ .ConfirmationURL }} which routes via /auth/v1/verify + redirect_to using PKCE (?code=...) or implicit hash. The new /auth/confirm route is designed for the token_hash+verifyOtp scheme, which only triggers if the Supabase email template is customised to use {{ .TokenHash }} and point at /auth/confirm directly. Since redirectTo is `/invite/${token}` (not `/auth/confirm?next=...`), neither path invokes /auth/confirm. On the client-side invite page, supabase.auth.getUser() returns null (code has not been exchanged into a session), so mode falls back to 'needs-password' and the whole 'authed-set-password' UX this iteration added is effectively unreachable in a vanilla Supabase project. Mitigation: see action_items."
+}

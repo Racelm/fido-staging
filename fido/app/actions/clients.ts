@@ -1,7 +1,9 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { firstRel } from '@/lib/rel'
 import { createClient } from '@/lib/supabase/server'
+import { createInvitationInternal } from './invitations'
 
 export async function createClientRecord(formData: FormData) {
   const supabase = await createClient()
@@ -30,7 +32,7 @@ export async function createClientRecord(formData: FormData) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('organization_id, role')
+    .select('organization_id, role, organizations(name)')
     .eq('id', user.id)
     .single()
   if (!profile?.organization_id || !['owner', 'staff'].includes(profile.role))
@@ -65,10 +67,32 @@ export async function createClientRecord(formData: FormData) {
     })
   }
 
+  // Auto-créer une invitation si un e-mail client est fourni
+  let invitation:
+    | { inviteUrl: string; emailSent: boolean; emailError?: string }
+    | undefined
+  if (inserted?.id && email) {
+    const cabinetName = firstRel(profile.organizations)?.name || 'Votre cabinet'
+    const res = await createInvitationInternal(supabase, {
+      organizationId: profile.organization_id,
+      clientId: inserted.id,
+      clientEmail: email,
+      clientCompany: companyName,
+      cabinetName,
+    })
+    if (!res.error && res.inviteUrl) {
+      invitation = {
+        inviteUrl: res.inviteUrl,
+        emailSent: res.emailSent,
+        emailError: res.emailError,
+      }
+    }
+  }
+
   revalidatePath('/clients')
   revalidatePath('/')
   revalidatePath('/deadlines')
-  return { success: true, clientId: inserted?.id }
+  return { success: true, clientId: inserted?.id, invitation }
 }
 
 export async function regenerateDeadlinesForClient(clientId: string, year?: number) {

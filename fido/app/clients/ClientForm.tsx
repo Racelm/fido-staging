@@ -1,20 +1,43 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useState } from 'react'
 import { createClientRecord } from '@/app/actions/clients'
 
-const initialState = { error: '', success: false }
+type State = {
+  error: string
+  success: boolean
+  invitation?: { inviteUrl: string; emailSent: boolean; emailError?: string }
+}
+const initialState: State = { error: '', success: false }
 
 export default function ClientForm() {
+  const [copied, setCopied] = useState(false)
   const [state, action, pending] = useActionState(
-    async (_state: typeof initialState, formData: FormData) => {
+    async (_state: State, formData: FormData) => {
       const result = await createClientRecord(formData)
-      return result.success
-        ? { error: '', success: true }
-        : { error: result.error || 'Une erreur est survenue.', success: false }
+      if (result.success) {
+        setCopied(false)
+        return {
+          error: '',
+          success: true,
+          invitation: result.invitation,
+        }
+      }
+      return { error: result.error || 'Une erreur est survenue.', success: false }
     },
     initialState
   )
+
+  async function copyLink() {
+    if (!state.invitation?.inviteUrl) return
+    try {
+      await navigator.clipboard.writeText(state.invitation.inviteUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+    } catch {
+      /* clipboard refused */
+    }
+  }
 
   return (
     <form action={action} className="client-form" data-testid="client-form">
@@ -35,7 +58,7 @@ export default function ClientForm() {
         className="search auth-input"
         name="email"
         type="email"
-        placeholder="E-mail"
+        placeholder="E-mail du contact (recommandé)"
         data-testid="client-email"
       />
       <input
@@ -94,12 +117,52 @@ export default function ClientForm() {
         </label>
       </div>
 
-      {state.error && <p className="auth-error">{state.error}</p>}
+      {state.error && <p className="auth-error" data-testid="client-error">{state.error}</p>}
+
       {state.success && (
-        <p className="auth-notice">
-          Client ajouté. Les échéances fiscales de l’année ont été générées automatiquement.
-        </p>
+        <div
+          className="auth-notice"
+          data-testid="client-success"
+          style={{ display: 'grid', gap: 10 }}
+        >
+          <strong>✅ Client créé.</strong>
+          {state.invitation ? (
+            state.invitation.emailSent ? (
+              <span>Un e-mail d’invitation vient d’être envoyé.</span>
+            ) : (
+              <div style={{ display: 'grid', gap: 8 }}>
+                <span>
+                  L’envoi d’e-mail n’est pas configuré sur cette instance. Partagez le lien
+                  d’invitation ci-dessous avec votre client&nbsp;:
+                </span>
+                <input
+                  className="search auth-input"
+                  readOnly
+                  value={state.invitation.inviteUrl}
+                  onFocus={(e) => e.currentTarget.select()}
+                  data-testid="client-invite-url"
+                  style={{ fontSize: 12 }}
+                />
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={copyLink}
+                  data-testid="client-invite-copy"
+                >
+                  {copied ? '✓ Lien copié' : 'Copier le lien d’invitation'}
+                </button>
+                <span className="muted" style={{ fontSize: 12 }}>
+                  Lien valable 7 jours. Vous pouvez le régénérer à tout moment depuis la fiche
+                  client.
+                </span>
+              </div>
+            )
+          ) : (
+            <span>Ajoutez une adresse e-mail pour générer un lien d’invitation.</span>
+          )}
+        </div>
       )}
+
       <button
         className="primary auth-submit"
         disabled={pending}

@@ -10,6 +10,73 @@ function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 }
 
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
+
+/**
+ * Crée une invitation : row dans client_invitations + e-mail (si clé configurée).
+ * Retourne toujours le lien à partager (fallback manuel si pas d'e-mail).
+ */
+export async function createInvitationInternal(
+  supabase: SupabaseServerClient,
+  params: {
+    organizationId: string
+    clientId: string
+    clientEmail: string
+    clientCompany: string
+    cabinetName: string
+  }
+): Promise<{
+  token: string
+  inviteUrl: string
+  emailSent: boolean
+  emailError?: string
+  error?: string
+}> {
+  const rawToken = randomBytes(32).toString('hex')
+  const tokenHash = createHash('sha256').update(rawToken).digest('hex')
+
+  const { error: insertErr } = await supabase
+    .from('client_invitations')
+    .insert({
+      client_id: params.clientId,
+      email: params.clientEmail,
+      token_hash: tokenHash,
+    })
+  if (insertErr) {
+    return { token: '', inviteUrl: '', emailSent: false, error: insertErr.message }
+  }
+
+  const inviteUrl = `${appUrl()}/invite/${rawToken}`
+  const appName = process.env.EMAIL_FROM_NAME || 'Fido'
+  let emailSent = false
+  let emailError: string | undefined
+
+  if (process.env.EMERGENT_EMAIL_KEY) {
+    try {
+      const { subject, html } = inviteEmailTemplate({
+        cabinetName: params.cabinetName,
+        clientCompany: params.clientCompany,
+        inviteUrl,
+        appName,
+      })
+      await sendEmail({ to: params.clientEmail, subject, html })
+      emailSent = true
+    } catch (err) {
+      emailError = err instanceof Error ? err.message : String(err)
+    }
+  }
+
+  await supabase.rpc('log_audit_event', {
+    p_action: 'invitation.create',
+    p_entity_type: 'invitation',
+    p_entity_id: params.clientId,
+    p_organization_id: params.organizationId,
+    p_meta: { email: params.clientEmail, email_sent: emailSent },
+  })
+
+  return { token: rawToken, inviteUrl, emailSent, emailError }
+}
+
 export async function createClientInvitation(clientId: string) {
   const supabase = await createClient()
   const {
@@ -35,44 +102,23 @@ export async function createClientInvitation(clientId: string) {
   if (!client.email)
     return { error: 'Ajoutez une adresse e-mail au client avant de créer une invitation.' }
 
-  const rawToken = randomBytes(32).toString('hex')
-  const tokenHash = createHash('sha256').update(rawToken).digest('hex')
-
-  const { error } = await supabase
-    .from('client_invitations')
-    .insert({ client_id: client.id, email: client.email, token_hash: tokenHash })
-  if (error) return { error: error.message }
-
-  const inviteUrl = `${appUrl()}/invite/${rawToken}`
   const cabinetName = firstRel(profile.organizations)?.name || 'Votre cabinet'
-  const appName = process.env.EMAIL_FROM_NAME || 'Fido'
 
-  let emailSent = false
-  let emailError: string | undefined
-  if (process.env.EMERGENT_EMAIL_KEY) {
-    try {
-      const { subject, html } = inviteEmailTemplate({
-        cabinetName,
-        clientCompany: client.company_name,
-        inviteUrl,
-        appName,
-      })
-      await sendEmail({ to: client.email, subject, html })
-      emailSent = true
-    } catch (err) {
-      emailError = err instanceof Error ? err.message : String(err)
-    }
-  }
-
-  // Audit
-  await supabase.rpc('log_audit_event', {
-    p_action: 'invitation.create',
-    p_entity_type: 'invitation',
-    p_entity_id: client.id,
-    p_organization_id: profile.organization_id,
-    p_meta: { email: client.email, email_sent: emailSent },
+  const result = await createInvitationInternal(supabase, {
+    organizationId: profile.organization_id,
+    clientId: client.id,
+    clientEmail: client.email,
+    clientCompany: client.company_name,
+    cabinetName,
   })
+  if (result.error) return { error: result.error }
 
   revalidatePath(`/clients/${client.id}`)
-  return { success: true, token: rawToken, emailSent, emailError }
+  return {
+    success: true,
+    token: result.token,
+    inviteUrl: result.inviteUrl,
+    emailSent: result.emailSent,
+    emailError: result.emailError,
+  }
 }

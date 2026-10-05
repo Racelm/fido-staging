@@ -65,7 +65,7 @@ export default function InviteButton({
       {inviteUrl && (
         <div style={{ display: 'grid', gap: 8 }} data-testid="invite-result">
           <span
-            className={emailSent ? 'auth-notice' : 'auth-notice'}
+            className="auth-notice"
             style={emailSent ? undefined : { background: '#fff7ed', color: '#9a3412' }}
           >
             {emailSent

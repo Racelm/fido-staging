@@ -1,0 +1,37 @@
+{
+  "summary": "Static code review + build verification of the invitation-email graceful-fallback fix in /app/fido (Next.js 15 + Supabase). All checkpoints requested by the main agent pass: createClientRecord auto-creates an invitation when email is provided and returns {inviteUrl, emailSent, emailError}; createInvitationInternal sets emailSent=true only when EMERGENT_EMAIL_KEY is set AND sendEmail resolves, otherwise returns inviteUrl with emailSent=false (never throws); ClientForm and InviteButton both render the inviteUrl + copy button with the required data-testid attributes. `tsc --noEmit` returns 0 errors and `next build` succeeds (16 routes, /clients and /clients/[id] both dynamic ƒ). No live Supabase calls were attempted (no instance available, per instructions).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "InviteButton.tsx:68", "issue": "className is `emailSent ? 'auth-notice' : 'auth-notice'` — both ternary branches resolve to the same class. The visual distinction relies solely on the inline style. Works but is dead ternary code; could be simplified to just 'auth-notice'."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "(Optional cleanup) Collapse the dead ternary `emailSent ? 'auth-notice' : 'auth-notice'` in /app/fido/app/clients/[id]/InviteButton.tsx line 68."
+  ],
+  "critical_code_review_comments": [
+    "createInvitationInternal correctly wraps sendEmail in try/catch so a misconfigured/failing email provider never breaks client creation (invitations.ts L54-67). ✅",
+    "inviteUrl is built BEFORE the email branch (L49), so it is always returned even when EMERGENT_EMAIL_KEY is missing. ✅",
+    "clients.ts createClientRecord guards invitation creation with `if (inserted?.id && email)` (L74) — no email means invitation stays undefined, no throw. ✅",
+    "ClientForm.tsx exposes data-testid=client-invite-url (L143) and data-testid=client-invite-copy (L150) in a readonly <input> within the emailSent=false branch. ✅",
+    "InviteButton.tsx renders data-testid=invite-url and data-testid=invite-copy inside the `inviteUrl && ...` block regardless of emailSent, with distinct French messaging (green default vs orange background #fff7ed / #9a3412 for the not-configured case). ✅",
+    "appUrl() helper falls back to http://localhost:3000 when NEXT_PUBLIC_APP_URL is unset; token format is `${appUrl}/invite/${rawToken}` where rawToken = randomBytes(32).toString('hex') — 64 hex chars. ✅",
+    "Audit log is still recorded with email_sent flag in meta even when email cannot be sent (invitations.ts L69-75). ✅",
+    "firstRel helper used correctly in both createClientRecord and createClientInvitation to normalize the organizations join. ✅",
+    "No files exceed 700 lines; email.ts is 390 lines (largest) and well-scoped.",
+    "No MongoDB usage (Supabase project) — ObjectId guideline not applicable."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (static review + build)", "frontend": "n/a (backend-only review requested)"},
+  "seed_data_creation": "none — no live Supabase instance",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "This is a Next.js 15 App Router + Supabase project located in /app/fido (NOT the default React+FastAPI+Mongo stack). Use `cd /app/fido && ./node_modules/.bin/tsc --noEmit` and `./node_modules/.bin/next build` for verification (pnpm/corepack also works). `.env.local` is seeded from `.env.example` placeholders — enough for build. No live Supabase is reachable so only static review + build are possible. The invitation graceful-fallback fix is correctly wired across clients.ts, invitations.ts, ClientForm.tsx, and InviteButton.tsx.",
+  "rca of the issue": "N/A — this iteration verified a fix, no new bug found. Original bug (silent no-op when EMERGENT_EMAIL_KEY missing) is correctly addressed: inviteUrl is always surfaced to the UI via the server action return value, and both UI surfaces (ClientForm success notice + InviteButton result card) display it with copy button and clear French messaging distinguishing emailSent true/false."
+}

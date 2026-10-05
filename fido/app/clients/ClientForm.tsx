@@ -3,10 +3,17 @@
 import { useActionState, useState } from 'react'
 import { createClientRecord } from '@/app/actions/clients'
 
+type Invitation = {
+  inviteUrl: string
+  emailSent: boolean
+  emailVia?: 'emergent' | 'supabase' | 'none'
+  emailError?: string
+}
+
 type State = {
   error: string
   success: boolean
-  invitation?: { inviteUrl: string; emailSent: boolean; emailError?: string }
+  invitation?: Invitation
 }
 const initialState: State = { error: '', success: false }
 
@@ -128,7 +135,13 @@ export default function ClientForm() {
           <strong>✅ Client créé.</strong>
           {state.invitation ? (
             state.invitation.emailSent ? (
-              <span>Un e-mail d’invitation vient d’être envoyé.</span>
+              <span>
+                Un e-mail d’invitation vient d’être envoyé
+                {state.invitation.emailVia === 'supabase'
+                  ? ' (via Supabase).'
+                  : ' (via Resend).'}{' '}
+                Le client reçoit un lien d’activation.
+              </span>
             ) : (
               <div style={{ display: 'grid', gap: 8 }}>
                 <span>

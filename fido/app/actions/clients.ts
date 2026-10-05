@@ -69,7 +69,7 @@ export async function createClientRecord(formData: FormData) {
 
   // Auto-créer une invitation si un e-mail client est fourni
   let invitation:
-    | { inviteUrl: string; emailSent: boolean; emailError?: string }
+    | { inviteUrl: string; emailSent: boolean; emailVia: 'emergent' | 'supabase' | 'none'; emailError?: string }
     | undefined
   if (inserted?.id && email) {
     const cabinetName = firstRel(profile.organizations)?.name || 'Votre cabinet'
@@ -84,6 +84,7 @@ export async function createClientRecord(formData: FormData) {
       invitation = {
         inviteUrl: res.inviteUrl,
         emailSent: res.emailSent,
+        emailVia: res.emailVia,
         emailError: res.emailError,
       }
     }

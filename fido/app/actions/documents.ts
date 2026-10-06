@@ -162,3 +162,57 @@ export async function archiveClient(clientId: string) {
   revalidatePath('/')
   return { success: true }
 }
+
+/* -------------------------------------------------------------------------- */
+/*                        Revue des documents (fiduciaire)                    */
+/* -------------------------------------------------------------------------- */
+
+export type ReviewAction = 'approved' | 'rejected' | 'pending_review'
+
+/**
+ * Fiduciaire (owner/staff) : valide, rejette ou remet en attente un document.
+ * Le trigger `audit_on_document_review` journalise automatiquement le changement.
+ */
+export async function reviewDocument(
+  documentId: string,
+  nextStatus: ReviewAction,
+  note?: string | null
+) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'Session expirée.' }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role, organization_id')
+    .eq('id', user.id)
+    .single()
+  if (!profile || !['owner', 'staff'].includes(profile.role))
+    return { error: 'Accès réservé au cabinet.' }
+
+  const payload: Record<string, unknown> = {
+    review_status: nextStatus,
+    review_note: note?.trim() ? note.trim() : null,
+    reviewed_by: nextStatus === 'pending_review' ? null : user.id,
+    reviewed_at: nextStatus === 'pending_review' ? null : new Date().toISOString(),
+  }
+
+  const { data: doc, error } = await supabase
+    .from('documents')
+    .update(payload)
+    .eq('id', documentId)
+    .eq('organization_id', profile.organization_id)
+    .is('deleted_at', null)
+    .select('id, client_id')
+    .single()
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/documents')
+  revalidatePath('/client')
+  revalidatePath('/audit')
+  if (doc?.client_id) revalidatePath(`/clients/${doc.client_id}`)
+  return { success: true }
+}

@@ -63,6 +63,13 @@ catégorisation Maroc) pour permettre un test réel avec un fiduciaire.
   - Pages `/clients/[id]/edit` (fiduciaire) et `/client/profile` (client)
   - Boutons "Modifier la fiche" + lien sidebar "Mes informations"
   - Template e-mail `clientProfileUpdatedTemplate` : notification auto au cabinet quand le client met à jour sa fiche (avec diff par ligne)
+- [x] **Revue des documents** (migration 009, 2026-02-04) :
+  - Enum `document_review_status` + colonnes `review_status`, `reviewed_by`, `reviewed_at`, `review_note` sur `documents`
+  - Default : chaque upload client arrive en `pending_review`
+  - Server action `reviewDocument` (owner/staff uniquement) : `approved` / `rejected` / `pending_review`
+  - Composants `ReviewBadge` + `ReviewButtons` partagés entre `/documents`, `/clients/[id]` et `/client`
+  - Côté client : badge visible + note de rejet affichée en rouge pour correction
+  - Trigger `audit_on_document_review` : chaque changement de statut est journalisé
 
 ## Files touched / created
 - `middleware.ts`, `lib/supabase/middleware.ts` (nouveau)

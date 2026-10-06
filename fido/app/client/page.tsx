@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { signOut } from '@/app/actions/auth'
 import ClientUpload from './ClientUpload'
 import MessageForm from './MessageForm'
+import ReviewBadge from '@/app/documents/ReviewBadge'
 
 export default async function ClientPage() {
   const supabase = await createClient()
@@ -54,7 +55,7 @@ export default async function ClientPage() {
       .limit(20),
     supabase
       .from('documents')
-      .select('id,name,mime_type,size_bytes,version,created_at')
+      .select('id,name,mime_type,size_bytes,version,review_status,review_note,created_at')
       .eq('client_id', client.id)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
@@ -210,7 +211,24 @@ export default async function ClientPage() {
                     v{d.version ?? 1} · {new Date(d.created_at).toLocaleDateString('fr-FR')}
                     {d.size_bytes ? ` · ${Math.round(d.size_bytes / 1024)} Ko` : ''}
                   </span>
+                  {d.review_status === 'rejected' && d.review_note && (
+                    <span
+                      style={{
+                        marginTop: 6,
+                        display: 'block',
+                        padding: '6px 10px',
+                        background: 'var(--red-50)',
+                        color: 'var(--red-600)',
+                        borderRadius: 8,
+                        fontSize: 12,
+                      }}
+                      data-testid={`reject-note-${d.id}`}
+                    >
+                      ⚠︎ Votre cabinet demande une correction : {d.review_note}
+                    </span>
+                  )}
                 </div>
+                <ReviewBadge status={d.review_status as string} size="sm" />
               </div>
             ))
           ) : (

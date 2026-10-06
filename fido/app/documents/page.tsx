@@ -3,6 +3,8 @@ import { firstRel } from '@/lib/rel'
 import { createClient } from '@/lib/supabase/server'
 import AppShell from '@/components/AppShell'
 import DownloadButton from './DownloadButton'
+import ReviewBadge from './ReviewBadge'
+import ReviewButtons from './ReviewButtons'
 
 const CATEGORY_LABEL: Record<string, string> = {
   piece_comptable: 'Pièce comptable',
@@ -37,18 +39,24 @@ export default async function DocumentsPage() {
 
   const { data: documents } = await supabase
     .from('documents')
-    .select('id,name,mime_type,size_bytes,category,version,created_at,clients(company_name)')
+    .select('id,name,mime_type,size_bytes,category,version,review_status,created_at,clients(company_name)')
     .eq('organization_id', profile.organization_id)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .limit(100)
+
+  const pendingCount = documents?.filter((d) => d.review_status === 'pending_review').length || 0
 
   return (
     <AppShell
       active="/documents"
       profile={profile}
       title="Documents"
-      welcome="Tous les fichiers partagés avec vos clients"
+      welcome={
+        pendingCount > 0
+          ? `${pendingCount} document(s) à vérifier`
+          : 'Tous les fichiers partagés avec vos clients'
+      }
     >
       <section className="card">
         <div className="section-head">
@@ -65,10 +73,11 @@ export default async function DocumentsPage() {
                 <th>Nom</th>
                 <th>Client</th>
                 <th>Catégorie</th>
+                <th>Statut</th>
                 <th>Version</th>
                 <th>Taille</th>
                 <th>Date</th>
-                <th></th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -81,11 +90,19 @@ export default async function DocumentsPage() {
                       {CATEGORY_LABEL[d.category as string] || d.category}
                     </span>
                   </td>
+                  <td><ReviewBadge status={d.review_status as string} size="sm" /></td>
                   <td>v{d.version ?? 1}</td>
                   <td>{d.size_bytes ? `${Math.round(d.size_bytes / 1024)} Ko` : '—'}</td>
                   <td>{new Date(d.created_at).toLocaleDateString('fr-FR')}</td>
                   <td style={{ textAlign: 'right' }}>
-                    <DownloadButton documentId={d.id} />
+                    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                      <ReviewButtons
+                        documentId={d.id}
+                        currentStatus={(d.review_status as 'pending_review' | 'approved' | 'rejected') || 'pending_review'}
+                        compact
+                      />
+                      <DownloadButton documentId={d.id} />
+                    </div>
                   </td>
                 </tr>
               ))}

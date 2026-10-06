@@ -6,6 +6,8 @@ import InviteButton from './InviteButton'
 import RequestForm from './RequestForm'
 import MessageForm from '@/app/client/MessageForm'
 import DownloadButton from '@/app/documents/DownloadButton'
+import ReviewBadge from '@/app/documents/ReviewBadge'
+import ReviewButtons from '@/app/documents/ReviewButtons'
 
 export default async function ClientDetailPage({
   params,
@@ -46,7 +48,7 @@ export default async function ClientDetailPage({
       .limit(10),
     supabase
       .from('documents')
-      .select('id,name,category,version,size_bytes,created_at')
+      .select('id,name,category,version,size_bytes,review_status,created_at')
       .eq('client_id', id)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
@@ -169,10 +171,20 @@ export default async function ClientDetailPage({
             <div className="mini-row" key={d.id} style={{ padding: '12px 22px' }}>
               <div className="mini-row-top">
                 <strong>{d.name}</strong>
-                <DownloadButton documentId={d.id} />
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <ReviewBadge status={d.review_status as string} size="sm" />
+                  <DownloadButton documentId={d.id} />
+                </div>
               </div>
               <div className="mini-row-sub">
                 v{d.version ?? 1} · {d.size_bytes ? `${Math.round(d.size_bytes / 1024)} Ko` : '—'} · {new Date(d.created_at).toLocaleDateString('fr-FR')}
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <ReviewButtons
+                  documentId={d.id}
+                  currentStatus={(d.review_status as 'pending_review' | 'approved' | 'rejected') || 'pending_review'}
+                  compact
+                />
               </div>
             </div>
           )) : (

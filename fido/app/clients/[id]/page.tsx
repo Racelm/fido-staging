@@ -29,7 +29,7 @@ export default async function ClientDetailPage({
   const { data: client } = await supabase
     .from('clients')
     .select(
-      'id, company_name, contact_name, email, phone, status, ice, if_number, rc_number, cnss_number, tva_period, created_at'
+      'id, company_name, contact_name, email, phone, address, website, status, ice, if_number, rc_number, cnss_number, tva_period, created_at'
     )
     .eq('id', id)
     .eq('organization_id', profile.organization_id)
@@ -105,13 +105,22 @@ export default async function ClientDetailPage({
           <div><div className="muted" style={{ fontSize: 12 }}>E-mail</div><div style={{ fontWeight: 600 }}>{client.email || '—'}</div></div>
           <div><div className="muted" style={{ fontSize: 12 }}>Téléphone</div><div style={{ fontWeight: 600 }}>{client.phone || '—'}</div></div>
           <div><div className="muted" style={{ fontSize: 12 }}>Période TVA</div><div style={{ fontWeight: 600 }}>{client.tva_period || '—'}</div></div>
+          <div style={{ gridColumn: 'span 2' }}><div className="muted" style={{ fontSize: 12 }}>Adresse</div><div style={{ fontWeight: 600 }}>{client.address || '—'}</div></div>
+          <div style={{ gridColumn: 'span 2' }}><div className="muted" style={{ fontSize: 12 }}>Site web</div><div style={{ fontWeight: 600 }}>{client.website || '—'}</div></div>
           <div><div className="muted" style={{ fontSize: 12 }}>ICE</div><div style={{ fontWeight: 600 }}>{client.ice || '—'}</div></div>
           <div><div className="muted" style={{ fontSize: 12 }}>IF</div><div style={{ fontWeight: 600 }}>{client.if_number || '—'}</div></div>
           <div><div className="muted" style={{ fontSize: 12 }}>RC</div><div style={{ fontWeight: 600 }}>{client.rc_number || '—'}</div></div>
           <div><div className="muted" style={{ fontSize: 12 }}>CNSS</div><div style={{ fontWeight: 600 }}>{client.cnss_number || '—'}</div></div>
         </div>
 
-        <div style={{ marginTop: 20 }}>
+        <div style={{ marginTop: 20, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <Link
+            href={`/clients/${client.id}/edit`}
+            className="btn-primary"
+            data-testid="btn-edit-client"
+          >
+            Modifier la fiche
+          </Link>
           <InviteButton
             clientId={client.id}
             existingInvitation={invitation ? { expiresAt: invitation.expires_at } : null}

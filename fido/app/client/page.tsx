@@ -96,6 +96,10 @@ export default async function ClientPage() {
             <span className="nav-icon">✉</span>
             <span>Messages</span>
           </a>
+          <a href="/client/profile" data-testid="nav-own-profile">
+            <span className="nav-icon">◉</span>
+            <span>Mes informations</span>
+          </a>
         </nav>
         <div className="sidebar-user">
           <div className="sidebar-user-avatar">

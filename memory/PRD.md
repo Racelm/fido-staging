@@ -28,7 +28,7 @@ catégorisation Maroc) pour permettre un test réel avec un fiduciaire.
 5. Audit trail (loi 09-08)
 6. Emails transactionnels (invitations)
 
-## What's been implemented (2026-01-28 → 2026-01-29)
+## What's been implemented (2026-01-28 → 2026-02-04)
 - [x] Auth SSR réactivée (middleware, login, signup, invite) — C1/C2/C3
 - [x] Fix RLS documents INSERT (uploaded_by = auth.uid) — C4
 - [x] Fix RLS storage : chemin `{org}/{client}/*` contraint et cross-check tenant — C5
@@ -55,6 +55,14 @@ catégorisation Maroc) pour permettre un test réel avec un fiduciaire.
 - [x] **`docs/DEPLOY.md`** : guide complet Vercel + Supabase (30 min)
 - [x] **Design "Workspace OS"** : palette violette (#6C5CE7), Plus Jakarta Sans, AppShell + Sidebar partagés, dashboard refait (KPIs colorés, tâches priorisées, rail activités+échéances), toutes pages migrées
 - [x] **Staff invitations** (migration 007) : table `staff_invitations` + RLS owner-only + RPC `claim_staff_invitation` + page `/team` + flow `/invite-staff/[token]` + template e-mail + rate-limit + audit
+- [x] **Édition fiche client** (migration 008, 2026-02-04) :
+  - Colonnes `address` + `website` ajoutées à `clients`
+  - RLS UPDATE : staff gère tous les champs ; policy dédiée pour le rôle `client` (self-update) — restriction par colonne côté server-action
+  - Trigger `audit_on_client_update` : diff avant/après enregistré dans `audit_events`
+  - Server actions `updateClientRecord` (fiduciaire, tous champs incl. statut) + `updateOwnClientProfile` (client, contact uniquement)
+  - Pages `/clients/[id]/edit` (fiduciaire) et `/client/profile` (client)
+  - Boutons "Modifier la fiche" + lien sidebar "Mes informations"
+  - Template e-mail `clientProfileUpdatedTemplate` : notification auto au cabinet quand le client met à jour sa fiche (avec diff par ligne)
 
 ## Files touched / created
 - `middleware.ts`, `lib/supabase/middleware.ts` (nouveau)

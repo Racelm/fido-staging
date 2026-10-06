@@ -480,3 +480,49 @@ export function documentRequestTemplate(params: {
   }
 }
 
+
+
+export function clientProfileUpdatedTemplate(params: {
+  clientCompany: string
+  cabinetName: string
+  changes: Array<[string, string | null, string | null]>
+  appUrl: string
+  appName: string
+}): { subject: string; html: string } {
+  const subject = `Fiche client mise à jour — ${params.clientCompany}`
+  const rows = params.changes
+    .map(
+      ([label, oldV, newV]) => `
+        <tr>
+          <td style="padding:6px 10px;color:#64748b;font-size:13px;border-bottom:1px solid #e2e8f0">${escapeHtml(label)}</td>
+          <td style="padding:6px 10px;color:#94a3b8;font-size:13px;border-bottom:1px solid #e2e8f0;text-decoration:line-through">${escapeHtml(oldV || '—')}</td>
+          <td style="padding:6px 10px;color:#0f172a;font-size:13px;font-weight:600;border-bottom:1px solid #e2e8f0">${escapeHtml(newV || '—')}</td>
+        </tr>`
+    )
+    .join('')
+  const body = `
+    <p>Bonjour,</p>
+    <p>Le client <strong>${escapeHtml(params.clientCompany)}</strong> vient de mettre à jour sa fiche sur ${escapeHtml(params.appName)}.</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;margin:12px 0 20px">
+      <thead>
+        <tr>
+          <th align="left" style="padding:6px 10px;font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.05em">Champ</th>
+          <th align="left" style="padding:6px 10px;font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.05em">Avant</th>
+          <th align="left" style="padding:6px 10px;font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.05em">Après</th>
+        </tr>
+      </thead>
+      <tbody>${rows || '<tr><td colspan="3" style="padding:10px;color:#64748b">Aucun changement détaillé.</td></tr>'}</tbody>
+    </table>
+    <p style="text-align:center;margin:20px 0">
+      <a href="${params.appUrl}" style="display:inline-block;padding:12px 20px;background:#6c5ce7;color:#ffffff;text-decoration:none;border-radius:10px;font-weight:600">Ouvrir la fiche client</a>
+    </p>
+  `
+  return {
+    subject,
+    html: baseLayout(
+      body,
+      params.appName,
+      `Notification envoyée par ${params.appName} pour ${escapeHtml(params.cabinetName)}.`
+    ),
+  }
+}

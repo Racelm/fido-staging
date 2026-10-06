@@ -177,43 +177,93 @@ export type SendEmailInput = {
 }
 
 /**
- * Envoie un e-mail transactionnel. Retourne l'ID Resend/proxy, ou lève une erreur.
+ * Envoie un e-mail transactionnel. Essaie dans l'ordre :
+ *   1. Resend direct (RESEND_API_KEY) — recommandé pour production
+ *   2. Proxy Emergent (EMERGENT_EMAIL_KEY) — pour les apps hébergées sur Emergent
  *
- * Utilisation : `await sendEmail({ to, subject, html })`. Le `html` DOIT provenir
- * d'un template server-side ; ne jamais passer d'HTML fourni par le client (G4).
+ * Retourne l'ID Resend, ou lève une erreur si aucun canal n'est configuré.
+ *
+ * `html` DOIT provenir d'un template server-side ; jamais d'HTML user-fourni (G4).
  */
 export async function sendEmail(input: SendEmailInput): Promise<string | null> {
-  const apiKey = process.env.EMERGENT_EMAIL_KEY
-  const fromName = process.env.EMAIL_FROM_NAME
-  if (!apiKey || !fromName) {
-    throw new Error('EMERGENT_EMAIL_KEY / EMAIL_FROM_NAME not configured')
-  }
+  const fromName = process.env.EMAIL_FROM_NAME || 'Fido'
   assertSafeEmail(input.subject, input.html)
 
-  const payload: Record<string, unknown> = {
-    to: [input.to],
-    subject: input.subject,
-    html: input.html,
-    from_name: fromName, // G1 : marque de l'app uniquement
+  // 1. Resend direct (production path)
+  const resendKey = process.env.RESEND_API_KEY
+  if (resendKey) {
+    const fromAddress = process.env.EMAIL_FROM_ADDRESS || 'onboarding@resend.dev'
+    const payload: Record<string, unknown> = {
+      from: `${fromName} <${fromAddress}>`,
+      to: [input.to],
+      subject: input.subject,
+      html: input.html,
+    }
+    const replyTo = input.replyTo || process.env.EMAIL_REPLY_TO
+    if (replyTo) payload.reply_to = replyTo
+
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${resendKey}`,
+      },
+      body: JSON.stringify(payload),
+      cache: 'no-store',
+    })
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '')
+      throw new Error(`Resend send failed (${res.status}): ${detail.slice(0, 200)}`)
+    }
+    const data = (await res.json().catch(() => ({}))) as { id?: string }
+    return data.id || null
   }
-  const replyTo = input.replyTo || process.env.EMAIL_REPLY_TO
-  if (replyTo) payload.contact_email = replyTo
+
+  // 2. Proxy Emergent (legacy / in-platform)
+  const apiKey = process.env.EMERGENT_EMAIL_KEY
+  if (apiKey) {
+    const payload: Record<string, unknown> = {
+      to: [input.to],
+      subject: input.subject,
+      html: input.html,
+      from_name: fromName,
+    }
+    const replyTo = input.replyTo || process.env.EMAIL_REPLY_TO
+    if (replyTo) payload.contact_email = replyTo
 
   const res = await fetch(`${EMAIL_BASE_URL}/api/v1/email/send`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Email-Key': apiKey,
-    },
-    body: JSON.stringify(payload),
-    cache: 'no-store',
-  })
-  if (!res.ok) {
-    const detail = await res.text().catch(() => '')
-    throw new Error(`Email send failed (${res.status}): ${detail.slice(0, 200)}`)
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Email-Key': apiKey,
+      },
+      body: JSON.stringify(payload),
+      cache: 'no-store',
+    })
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '')
+      throw new Error(`Emergent email send failed (${res.status}): ${detail.slice(0, 200)}`)
+    }
+    const data = (await res.json().catch(() => ({}))) as { id?: string }
+    return data.id || null
   }
-  const data = (await res.json().catch(() => ({}))) as { id?: string }
-  return data.id || null
+
+  throw new Error('No email provider configured (set RESEND_API_KEY or EMERGENT_EMAIL_KEY)')
+}
+
+/** Envoie best-effort — ne jette jamais, log et retourne un diag. */
+export async function sendEmailSafe(
+  input: SendEmailInput
+): Promise<{ sent: boolean; id?: string | null; error?: string }> {
+  try {
+    const id = await sendEmail(input)
+    return { sent: true, id }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    // eslint-disable-next-line no-console
+    console.error('[email] sendEmailSafe error:', msg)
+    return { sent: false, error: msg }
+  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -383,6 +433,47 @@ export function staffInviteTemplate(params: {
       body,
       params.appName,
       `Invitation envoyée par ${params.appName} pour le compte de ${escapeHtml(params.cabinetName)}. Nous ne vous demanderons jamais de mot de passe par e-mail.`
+    ),
+  }
+}
+
+
+export function documentRequestTemplate(params: {
+  cabinetName: string
+  clientCompany: string
+  requestTitle: string
+  description?: string | null
+  dueDate?: string | null
+  appUrl: string
+  appName: string
+}): { subject: string; html: string } {
+  const dueStr = params.dueDate
+    ? new Date(params.dueDate + 'T00:00:00Z').toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+      })
+    : null
+  const subject = `Nouveau document demandé : ${params.requestTitle}`
+  const descrBlock = params.description
+    ? `<p style="color:#334155;background:#f1f5f9;padding:10px 12px;border-radius:8px;margin:12px 0">${escapeHtml(params.description)}</p>`
+    : ''
+  const body = `
+    <p>Bonjour,</p>
+    <p>Votre cabinet <strong>${escapeHtml(params.cabinetName)}</strong> vous demande un nouveau document pour <strong>${escapeHtml(params.clientCompany)}</strong>&nbsp;:</p>
+    <p style="font-size:17px;font-weight:700;color:#0f172a;margin:14px 0">${escapeHtml(params.requestTitle)}</p>
+    ${descrBlock}
+    ${dueStr ? `<p>Échéance&nbsp;: <strong>${escapeHtml(dueStr)}</strong></p>` : ''}
+    <p style="text-align:center;margin:24px 0">
+      <a href="${params.appUrl}" style="display:inline-block;padding:12px 20px;background:#6c5ce7;color:#ffffff;text-decoration:none;border-radius:10px;font-weight:600">Téléverser le document</a>
+    </p>
+  `
+  return {
+    subject,
+    html: baseLayout(
+      body,
+      params.appName,
+      `Rappel envoyé automatiquement par ${params.appName} pour ${escapeHtml(params.cabinetName)}.`
     ),
   }
 }

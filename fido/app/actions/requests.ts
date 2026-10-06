@@ -4,7 +4,7 @@ import { firstRel } from '@/lib/rel'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { documentRequestTemplate } from '@/lib/email'
-import { getClientEmail, getStaffEmails, sendToMany } from '@/lib/notify'
+import { getClientEmail, sendToMany } from '@/lib/notify'
 
 function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'

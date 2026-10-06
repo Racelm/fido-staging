@@ -1,0 +1,34 @@
+{
+  "summary": "Static code review + typecheck + production build only (no live Supabase/Resend). TypeScript `tsc --noEmit` clean. `next build` succeeded with all 18 routes compiled, no type errors in /lib/email.ts, /lib/notify.ts, /app/actions/requests.ts, /app/actions/messages.ts. Resend payload shape (from, to[], subject, html, reply_to), Bearer auth, and error handling all look correct. Guardrails (G2/G3) run before any send and are not bypassed by the new Resend path. sendEmailSafe wraps sendEmail in try/catch and never throws — confirmed used in both actions. documentRequestTemplate is HTTPS-only CTA (no form, no credential ask). service_role key only read inside notify.ts admin() and never included in thrown error strings (sendEmail errors only slice response body text, not headers). No test suite was executed (no live creds; project is Next.js server actions, not a REST backend).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/app/actions/requests.ts", "issue": "`getStaffEmails` is imported but never used in this file (only getClientEmail+sendToMany are used). Harmless — tsc + next build pass — but ESLint `no-unused-vars` could flag it. Suggest removing the import."},
+      {"endpoint": "/lib/email.ts assertSafeEmail (G3)", "issue": "Guardrail requires absolute https URLs. `appUrl()` falls back to `http://localhost:3000` when NEXT_PUBLIC_APP_URL is unset. In that case the templates embed an http CTA, assertSafeEmail throws, and sendEmailSafe silently returns {sent:false}. On Vercel NEXT_PUBLIC_APP_URL should always be set, but worth asserting at startup or defaulting to a documented https placeholder to avoid silent email loss in local/preview."},
+      {"endpoint": "/lib/notify.ts getStaffEmails", "issue": "Per-profile `auth.admin.getUserById` call is sequential (N+1). Fine for typical cabinets (<20 staff) but could be batched via `auth.admin.listUsers` filtered by id if staff grows."},
+      {"endpoint": "/lib/email.ts sendEmail (Resend branch)", "issue": "No timeout on `fetch('https://api.resend.com/emails')`. If Resend hangs, server action awaits indefinitely. Consider AbortController with ~10s timeout — sendEmailSafe would still catch and the main action remains best-effort, but response latency to the UI could degrade."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [],
+  "action_items": [
+    "Remove unused `getStaffEmails` import from /app/fido/app/actions/requests.ts (cosmetic)",
+    "Add AbortController timeout (~10s) around the Resend and Emergent `fetch` calls to prevent server-action latency spikes",
+    "Document that NEXT_PUBLIC_APP_URL MUST be https in prod (otherwise G3 silently drops notifications) — optionally fail-fast in appUrl() when it is set to a non-https value"
+  ],
+  "critical_code_review_comments": [
+    "Resend payload format is CORRECT: {from: 'Name <addr>', to: [to], subject, html, reply_to?} with Bearer auth — matches Resend v1 /emails API.",
+    "Guardrails are NOT bypassed: assertSafeEmail(subject, html) is called at the top of sendEmail, before either provider branch.",
+    "Service-role key handling is SAFE: key is read only inside notify.ts admin() and never serialized into error messages. sendEmail errors only slice the HTTP response text (first 200 chars) which cannot contain SUPABASE_SERVICE_ROLE_KEY.",
+    "sendEmailSafe correctly wraps sendEmail and is the only path used in requests.ts/messages.ts — the throwing sendEmail is never invoked directly in these two actions. Business action (insert) always commits before notification.",
+    "newMessageTemplate reuse for staff→client is a reasonable pragmatic choice but note the subject becomes 'Nouveau message — <cabinetName>', not the sender's name. Acceptable for the stated requirement.",
+    "firstRel(profile.organizations) correctly handles Supabase's array-vs-object relation ambiguity.",
+    "getClientEmail prefers clients.email then falls back to auth.users via profile_id — correct ordering."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (tsc + next build pass; static review complete)", "frontend": "n/a (backend-only review requested)"},
+  "seed_data_creation": "",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Email flows (invite, document request, message) cannot be exercised end-to-end without RESEND_API_KEY + a verified sender domain (or Resend sandbox restricted to the account owner's email). Next iteration can verify with a real Resend sandbox key by submitting the server actions through a logged-in Supabase session and checking console logs for '[email] sendEmailSafe error' lines plus Resend dashboard activity. tsc + build are green on this iteration."
+}

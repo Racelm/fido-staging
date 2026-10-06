@@ -210,6 +210,7 @@ export async function sendEmail(input: SendEmailInput): Promise<string | null> {
       },
       body: JSON.stringify(payload),
       cache: 'no-store',
+      signal: AbortSignal.timeout(10_000),
     })
     if (!res.ok) {
       const detail = await res.text().catch(() => '')
@@ -239,6 +240,7 @@ export async function sendEmail(input: SendEmailInput): Promise<string | null> {
       },
       body: JSON.stringify(payload),
       cache: 'no-store',
+      signal: AbortSignal.timeout(10_000),
     })
     if (!res.ok) {
       const detail = await res.text().catch(() => '')

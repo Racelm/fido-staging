@@ -3,7 +3,8 @@
 import { firstRel } from '@/lib/rel'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { documentReceivedTemplate, sendEmail } from '@/lib/email'
+import { documentReceivedTemplate, documentRejectedTemplate, sendEmail } from '@/lib/email'
+import { getClientEmail, sendToMany } from '@/lib/notify'
 
 const MAX_SIZE = 25 * 1024 * 1024 // 25 MB
 const ALLOWED_MIME = new Set([
@@ -205,10 +206,38 @@ export async function reviewDocument(
     .eq('id', documentId)
     .eq('organization_id', profile.organization_id)
     .is('deleted_at', null)
-    .select('id, client_id')
+    .select('id, name, client_id, organization_id')
     .single()
 
   if (error) return { error: error.message }
+
+  // Notification best-effort au client en cas de rejet
+  if (doc && nextStatus === 'rejected') {
+    try {
+      const [clientEmail, { data: clientRow }, { data: orgRow }] = await Promise.all([
+        getClientEmail(doc.client_id),
+        supabase.from('clients').select('company_name').eq('id', doc.client_id).single(),
+        supabase
+          .from('organizations')
+          .select('name')
+          .eq('id', doc.organization_id)
+          .single(),
+      ])
+      if (clientEmail && clientRow) {
+        const tpl = documentRejectedTemplate({
+          clientCompany: clientRow.company_name,
+          cabinetName: orgRow?.name || 'Votre cabinet',
+          documentName: doc.name,
+          reviewNote: note?.trim() || null,
+          appUrl: `${appUrl()}/client`,
+          appName: process.env.EMAIL_FROM_NAME || 'Fido',
+        })
+        await sendToMany([clientEmail], tpl)
+      }
+    } catch {
+      /* best-effort : ne bloque jamais la revue */
+    }
+  }
 
   revalidatePath('/documents')
   revalidatePath('/client')

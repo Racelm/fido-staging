@@ -70,6 +70,7 @@ catégorisation Maroc) pour permettre un test réel avec un fiduciaire.
   - Composants `ReviewBadge` + `ReviewButtons` partagés entre `/documents`, `/clients/[id]` et `/client`
   - Côté client : badge visible + note de rejet affichée en rouge pour correction
   - Trigger `audit_on_document_review` : chaque changement de statut est journalisé
+  - **Email auto au client en cas de rejet** : template `documentRejectedTemplate` envoyé via `getClientEmail`+`sendToMany` avec la note du cabinet (best-effort, non bloquant)
 
 ## Files touched / created
 - `middleware.ts`, `lib/supabase/middleware.ts` (nouveau)

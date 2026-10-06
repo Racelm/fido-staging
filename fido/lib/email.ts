@@ -526,3 +526,35 @@ export function clientProfileUpdatedTemplate(params: {
     ),
   }
 }
+
+export function documentRejectedTemplate(params: {
+  clientCompany: string
+  cabinetName: string
+  documentName: string
+  reviewNote?: string | null
+  appUrl: string
+  appName: string
+}): { subject: string; html: string } {
+  const subject = `Document à corriger — ${params.documentName}`
+  const noteBlock = params.reviewNote
+    ? `<p style="color:#334155;background:#fef2f2;border-left:3px solid #dc2626;padding:10px 12px;border-radius:8px;margin:12px 0"><strong>Message de votre cabinet :</strong><br/>${escapeHtml(params.reviewNote)}</p>`
+    : `<p style="color:#64748b;margin:12px 0">Votre cabinet n'a pas précisé la raison. Contactez-le pour plus de détails.</p>`
+  const body = `
+    <p>Bonjour,</p>
+    <p>Votre cabinet <strong>${escapeHtml(params.cabinetName)}</strong> vous demande de corriger le document suivant pour <strong>${escapeHtml(params.clientCompany)}</strong>&nbsp;:</p>
+    <p style="font-size:17px;font-weight:700;color:#0f172a;margin:14px 0">${escapeHtml(params.documentName)}</p>
+    ${noteBlock}
+    <p>Veuillez téléverser une version corrigée depuis votre espace&nbsp;:</p>
+    <p style="text-align:center;margin:24px 0">
+      <a href="${params.appUrl}" style="display:inline-block;padding:12px 20px;background:#6c5ce7;color:#ffffff;text-decoration:none;border-radius:10px;font-weight:600">Ouvrir mon espace ${escapeHtml(params.appName)}</a>
+    </p>
+  `
+  return {
+    subject,
+    html: baseLayout(
+      body,
+      params.appName,
+      `Notification envoyée par ${params.appName} pour ${escapeHtml(params.cabinetName)}.`
+    ),
+  }
+}

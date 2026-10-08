@@ -91,3 +91,5 @@ fido/node_modules/.pnpm/@next+swc-linux-arm64-gnu@15.5.0/node_modules/@next/swc-
 credentials.json
 *.key
 .credentials
+fido/node_modules/.pnpm/@next+swc-linux-arm64-gnu@15.5.27/node_modules/@next/swc-linux-arm64-gnu/next-swc.linux-arm64-gnu.node
+.pnpm-store/v11/files/52/0ab3b2fb6b3b8f87bf01638d118f17915289c9daf57d216368676145ac8753730f1e134fc08915bd7c21a62493b651196a0222f4be1ca25e93574eb164a87d

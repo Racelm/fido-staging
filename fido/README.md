@@ -28,7 +28,7 @@ Plateforme SaaS de collaboration fiduciaires ↔ clients (Maroc).
 ```bash
 pnpm install
 cp .env.example .env.local
-# renseigner les variables Supabase et EMERGENT_EMAIL_KEY
+# renseigner les variables Supabase et RESEND_API_KEY + EMAIL_FROM_ADDRESS
 
 # Exécuter les migrations dans Supabase (ordre alphabétique) :
 #   supabase/schema.sql

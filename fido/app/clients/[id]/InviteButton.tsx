@@ -13,7 +13,7 @@ export default function InviteButton({
   const [loading, setLoading] = useState(false)
   const [inviteUrl, setInviteUrl] = useState('')
   const [emailSent, setEmailSent] = useState(false)
-  const [emailVia, setEmailVia] = useState<'emergent' | 'supabase' | 'none'>('none')
+  const [emailVia, setEmailVia] = useState<'resend' | 'emergent' | 'supabase' | 'none'>('none')
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
 
@@ -27,7 +27,7 @@ export default function InviteButton({
     } else if (result.inviteUrl) {
       setInviteUrl(result.inviteUrl)
       setEmailSent(Boolean(result.emailSent))
-      setEmailVia((result.emailVia as 'emergent' | 'supabase' | 'none') || 'none')
+      setEmailVia((result.emailVia as 'resend' | 'emergent' | 'supabase' | 'none') || 'none')
     }
     setLoading(false)
   }
@@ -74,7 +74,9 @@ export default function InviteButton({
               ? emailVia === 'supabase'
                 ? '✉️ E-mail d’invitation envoyé via Supabase. Le client doit cliquer le lien dans sa boîte pour activer son compte.'
                 : '✉️ E-mail d’invitation envoyé au client.'
-              : '⚠️ L’envoi d’e-mail n’est pas configuré. Partagez ce lien avec votre client :'}
+              : emailVia === 'none'
+                ? '⚠️ L’envoi d’e-mail n’est pas configuré. Partagez ce lien avec votre client :'
+                : '⚠️ L’e-mail n’a pas pu être envoyé. Partagez ce lien avec votre client :'}
           </span>
           <input
             className="search auth-input"

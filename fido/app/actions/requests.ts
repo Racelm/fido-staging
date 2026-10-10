@@ -53,7 +53,7 @@ export async function createDocumentRequest(formData: FormData) {
   ])
   let notification: { sent: boolean; reason?: string } = { sent: false, reason: 'no-email' }
   if (clientEmail && client) {
-    const appName = process.env.EMAIL_FROM_NAME || 'Fido'
+    const appName = process.env.EMAIL_FROM_NAME || 'Tiwizi'
     const cabinetName = firstRel(profile.organizations)?.name || 'Votre cabinet'
     const { subject, html } = documentRequestTemplate({
       cabinetName,

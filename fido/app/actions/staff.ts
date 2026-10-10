@@ -3,7 +3,7 @@
 import { createHash, randomBytes } from 'crypto'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { sendEmail, staffInviteTemplate } from '@/lib/email'
+import { emailProvider, sendEmail, staffInviteTemplate } from '@/lib/email'
 
 function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
@@ -50,11 +50,11 @@ export async function inviteStaff(formData: FormData) {
   const inviteUrl = `${appUrl()}/invite-staff/${rawToken}`
   const org = profile.organizations as { name?: string | null } | { name?: string | null }[] | null | undefined
   const cabinetName = (Array.isArray(org) ? org[0]?.name : org?.name) || 'Votre cabinet'
-  const appName = process.env.EMAIL_FROM_NAME || 'Fido'
+  const appName = process.env.EMAIL_FROM_NAME || 'Tiwizi'
 
   let emailSent = false
   let emailError: string | undefined
-  if (process.env.EMERGENT_EMAIL_KEY) {
+  if (emailProvider() !== 'none') {
     try {
       const { subject, html } = staffInviteTemplate({
         inviteeName: fullName || 'cher·e collaborateur·rice',

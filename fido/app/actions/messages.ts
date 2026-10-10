@@ -55,7 +55,7 @@ export async function sendMessage(formData: FormData) {
 
   // Notification e-mail (best-effort, ne jette jamais)
   const cabinetName = firstRel(profile.organizations)?.name || 'Votre cabinet'
-  const appName = process.env.EMAIL_FROM_NAME || 'Fido'
+  const appName = process.env.EMAIL_FROM_NAME || 'Tiwizi'
   const preview = body.length > 220 ? body.slice(0, 217) + '…' : body
 
   if (profile.role === 'client') {

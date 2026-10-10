@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { firstRel } from '@/lib/rel'
 import { createClient } from '@/lib/supabase/server'
 import { createInvitationInternal } from './invitations'
+import type { InviteEmailVia } from './invitations'
 import { clientProfileUpdatedTemplate } from '@/lib/email'
 import { getStaffEmails, sendToMany } from '@/lib/notify'
 
@@ -71,7 +72,7 @@ export async function createClientRecord(formData: FormData) {
 
   // Auto-créer une invitation si un e-mail client est fourni
   let invitation:
-    | { inviteUrl: string; emailSent: boolean; emailVia: 'emergent' | 'supabase' | 'none'; emailError?: string }
+    | { inviteUrl: string; emailSent: boolean; emailVia: InviteEmailVia; emailError?: string }
     | undefined
   if (inserted?.id && email) {
     const cabinetName = firstRel(profile.organizations)?.name || 'Votre cabinet'
@@ -270,7 +271,7 @@ export async function updateOwnClientProfile(formData: FormData) {
         cabinetName: orgRow?.name || 'Votre cabinet',
         changes,
         appUrl: `${appUrl}/clients/${before.id}`,
-        appName: 'Fido',
+        appName: process.env.EMAIL_FROM_NAME || 'Tiwizi',
       })
       await sendToMany(staffEmails, tpl)
     }

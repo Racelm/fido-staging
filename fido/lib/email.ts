@@ -169,6 +169,15 @@ export function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;')
 }
 
+export type EmailProvider = 'resend' | 'emergent' | 'none'
+
+/** Canal d'envoi configuré sur cette instance (même ordre de priorité que sendEmail). */
+export function emailProvider(): EmailProvider {
+  if (process.env.RESEND_API_KEY) return 'resend'
+  if (process.env.EMERGENT_EMAIL_KEY) return 'emergent'
+  return 'none'
+}
+
 export type SendEmailInput = {
   to: string
   subject: string
@@ -186,7 +195,7 @@ export type SendEmailInput = {
  * `html` DOIT provenir d'un template server-side ; jamais d'HTML user-fourni (G4).
  */
 export async function sendEmail(input: SendEmailInput): Promise<string | null> {
-  const fromName = process.env.EMAIL_FROM_NAME || 'Fido'
+  const fromName = process.env.EMAIL_FROM_NAME || 'Tiwizi'
   assertSafeEmail(input.subject, input.html)
 
   // 1. Resend direct (production path)

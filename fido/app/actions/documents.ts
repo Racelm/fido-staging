@@ -105,7 +105,7 @@ export async function notifyStaffOfDocument(documentId: string) {
 
   if (!staff?.length) return { success: false }
 
-  const appName = process.env.EMAIL_FROM_NAME || 'Fido'
+  const appName = process.env.EMAIL_FROM_NAME || 'Tiwizi'
   const { subject, html } = documentReceivedTemplate({
     clientCompany: firstRel(doc.clients)?.company_name || 'Client',
     documentName: doc.name,
@@ -230,7 +230,7 @@ export async function reviewDocument(
           documentName: doc.name,
           reviewNote: note?.trim() || null,
           appUrl: `${appUrl()}/client`,
-          appName: process.env.EMAIL_FROM_NAME || 'Fido',
+          appName: process.env.EMAIL_FROM_NAME || 'Tiwizi',
         })
         await sendToMany([clientEmail], tpl)
       }

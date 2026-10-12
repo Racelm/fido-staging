@@ -13,11 +13,11 @@ function appUrl(): string {
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
 
-export type InviteEmailVia = 'resend' | 'emergent' | 'supabase' | 'none'
+export type InviteEmailVia = 'smtp' | 'resend' | 'emergent' | 'supabase' | 'none'
 
 /**
  * Essaie d'envoyer l'e-mail d'invitation via le canal le plus simple disponible :
- *   1. Si RESEND_API_KEY (ou EMERGENT_EMAIL_KEY) est configurée → envoi via
+ *   1. Si SMTP_* (ou RESEND_API_KEY / EMERGENT_EMAIL_KEY) est configurée → envoi via
  *      sendEmail avec notre template HTML
  *   2. Sinon si SUPABASE_SERVICE_ROLE_KEY est configurée → envoi via Supabase Auth
  *      natif (inviteUserByEmail), gratuit, inclus avec Supabase, template dans

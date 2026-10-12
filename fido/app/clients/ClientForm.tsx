@@ -6,7 +6,7 @@ import { createClientRecord } from '@/app/actions/clients'
 type Invitation = {
   inviteUrl: string
   emailSent: boolean
-  emailVia?: 'resend' | 'emergent' | 'supabase' | 'none'
+  emailVia?: 'smtp' | 'resend' | 'emergent' | 'supabase' | 'none'
   emailError?: string
 }
 
@@ -139,7 +139,7 @@ export default function ClientForm() {
                 Un e-mail d’invitation vient d’être envoyé
                 {state.invitation.emailVia === 'supabase'
                   ? ' (via Supabase).'
-                  : ' (via Resend).'}{' '}
+                  : '.'}{' '}
                 Le client reçoit un lien d’activation.
               </span>
             ) : (

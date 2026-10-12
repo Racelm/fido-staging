@@ -125,8 +125,12 @@ Ajoutez pour **Production** et **Preview** :
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `eyJ...` | Étape 1 |
 | `SUPABASE_SERVICE_ROLE_KEY` | `eyJ...` | Étape 1 · **Sensitive** |
 | `NEXT_PUBLIC_APP_URL` | `https://fido-staging-xxx.vercel.app` | Après premier deploy, revenir mettre l’URL réelle |
+| `SMTP_HOST` | `smtp.hostinger.com` | Boîte mail Hostinger · prioritaire sur Resend |
+| `SMTP_PORT` | `465` | 465 = TLS, 587 = STARTTLS |
+| `SMTP_USER` | `tiwizi@raeldata.com` | Adresse complète de la boîte |
+| `SMTP_PASS` | `••••` | Mot de passe de la boîte · **Sensitive** |
 | `RESEND_API_KEY` | `re_...` | Clé API Resend (domaine expéditeur vérifié) · **Sensitive** · prioritaire |
-| `EMAIL_FROM_ADDRESS` | `tiwizi@raeldata.com` | Adresse d'un domaine vérifié dans Resend |
+| `EMAIL_FROM_ADDRESS` | `tiwizi@raeldata.com` | Expéditeur (par défaut = SMTP_USER) |
 | `EMAIL_REPLY_TO` | `support@raeldata.com` | Optionnel |
 | `EMERGENT_EMAIL_KEY` | `ek_...` | Alternative legacy (proxy Emergent) · **Sensitive** |
 | `EMAIL_FROM_NAME` | `Tiwizi` |  |

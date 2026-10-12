@@ -13,7 +13,7 @@ export default function InviteButton({
   const [loading, setLoading] = useState(false)
   const [inviteUrl, setInviteUrl] = useState('')
   const [emailSent, setEmailSent] = useState(false)
-  const [emailVia, setEmailVia] = useState<'resend' | 'emergent' | 'supabase' | 'none'>('none')
+  const [emailVia, setEmailVia] = useState<'smtp' | 'resend' | 'emergent' | 'supabase' | 'none'>('none')
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
 
@@ -27,7 +27,7 @@ export default function InviteButton({
     } else if (result.inviteUrl) {
       setInviteUrl(result.inviteUrl)
       setEmailSent(Boolean(result.emailSent))
-      setEmailVia((result.emailVia as 'resend' | 'emergent' | 'supabase' | 'none') || 'none')
+      setEmailVia((result.emailVia as 'smtp' | 'resend' | 'emergent' | 'supabase' | 'none') || 'none')
     }
     setLoading(false)
   }

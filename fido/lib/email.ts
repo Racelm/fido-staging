@@ -11,6 +11,8 @@
  * Ce module s'utilise UNIQUEMENT côté serveur (server actions, routes API).
  */
 
+import { sendSmtp, smtpConfigFromEnv } from './smtp'
+
 const EMAIL_BASE_URL = 'https://integrations.emergentagent.com'
 const SHORTENERS = new Set([
   'bit.ly',
@@ -169,10 +171,11 @@ export function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;')
 }
 
-export type EmailProvider = 'resend' | 'emergent' | 'none'
+export type EmailProvider = 'smtp' | 'resend' | 'emergent' | 'none'
 
 /** Canal d'envoi configuré sur cette instance (même ordre de priorité que sendEmail). */
 export function emailProvider(): EmailProvider {
+  if (smtpConfigFromEnv()) return 'smtp'
   if (process.env.RESEND_API_KEY) return 'resend'
   if (process.env.EMERGENT_EMAIL_KEY) return 'emergent'
   return 'none'
@@ -187,6 +190,7 @@ export type SendEmailInput = {
 
 /**
  * Envoie un e-mail transactionnel. Essaie dans l'ordre :
+ *   0. SMTP (SMTP_HOST/SMTP_USER/SMTP_PASS) — p. ex. boîte mail Hostinger
  *   1. Resend direct (RESEND_API_KEY) — recommandé pour production
  *   2. Proxy Emergent (EMERGENT_EMAIL_KEY) — pour les apps hébergées sur Emergent
  *
@@ -197,6 +201,19 @@ export type SendEmailInput = {
 export async function sendEmail(input: SendEmailInput): Promise<string | null> {
   const fromName = process.env.EMAIL_FROM_NAME || 'Tiwizi'
   assertSafeEmail(input.subject, input.html)
+
+  // 0. SMTP (boîte mail Hostinger ou autre)
+  const smtp = smtpConfigFromEnv()
+  if (smtp) {
+    return sendSmtp(smtp, {
+      fromName,
+      fromAddress: process.env.EMAIL_FROM_ADDRESS || smtp.user,
+      to: input.to,
+      subject: input.subject,
+      html: input.html,
+      replyTo: input.replyTo || process.env.EMAIL_REPLY_TO || undefined,
+    })
+  }
 
   // 1. Resend direct (production path)
   const resendKey = process.env.RESEND_API_KEY
@@ -259,7 +276,7 @@ export async function sendEmail(input: SendEmailInput): Promise<string | null> {
     return data.id || null
   }
 
-  throw new Error('No email provider configured (set RESEND_API_KEY or EMERGENT_EMAIL_KEY)')
+  throw new Error('No email provider configured (set SMTP_HOST/SMTP_USER/SMTP_PASS, RESEND_API_KEY or EMERGENT_EMAIL_KEY)')
 }
 
 /** Envoie best-effort — ne jette jamais, log et retourne un diag. */

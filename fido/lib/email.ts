@@ -181,6 +181,17 @@ export function emailProvider(): EmailProvider {
   return 'none'
 }
 
+/**
+ * Diagnostic lisible quand aucun canal n'est configuré : liste les variables
+ * SMTP absentes (noms uniquement, jamais les valeurs).
+ */
+export function emailConfigDiagnostic(): string {
+  const missing = ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS'].filter((k) => !process.env[k])
+  return missing.length
+    ? `Variables manquantes : ${missing.join(', ')}`
+    : 'Configuration SMTP présente'
+}
+
 export type SendEmailInput = {
   to: string
   subject: string

@@ -5,7 +5,7 @@ import { firstRel } from '@/lib/rel'
 import { createHash, randomBytes } from 'crypto'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { emailProvider, inviteEmailTemplate, sendEmail } from '@/lib/email'
+import { emailConfigDiagnostic, emailProvider, inviteEmailTemplate, sendEmail } from '@/lib/email'
 
 function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
@@ -82,7 +82,7 @@ async function sendInvitationEmail(params: {
     }
   }
 
-  return { sent: false, via: 'none' }
+  return { sent: false, via: 'none', error: emailConfigDiagnostic() }
 }
 
 export async function createInvitationInternal(

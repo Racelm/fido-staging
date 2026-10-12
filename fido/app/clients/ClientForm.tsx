@@ -150,6 +150,11 @@ export default function ClientForm() {
                     : 'L’envoi d’e-mail n’est pas configuré sur cette instance.'}{' '}
                   Partagez le lien d’invitation ci-dessous avec votre client&nbsp;:
                 </span>
+                {state.invitation.emailError && (
+                  <span className="muted" style={{ fontSize: 12 }} data-testid="client-email-error">
+                    Détail : {state.invitation.emailError}
+                  </span>
+                )}
                 <input
                   className="search auth-input"
                   readOnly

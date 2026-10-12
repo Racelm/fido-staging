@@ -15,6 +15,7 @@ export default function InviteButton({
   const [emailSent, setEmailSent] = useState(false)
   const [emailVia, setEmailVia] = useState<'smtp' | 'resend' | 'emergent' | 'supabase' | 'none'>('none')
   const [error, setError] = useState('')
+  const [emailError, setEmailError] = useState('')
   const [copied, setCopied] = useState(false)
 
   async function createInvite() {
@@ -27,6 +28,7 @@ export default function InviteButton({
     } else if (result.inviteUrl) {
       setInviteUrl(result.inviteUrl)
       setEmailSent(Boolean(result.emailSent))
+      setEmailError(result.emailError || '')
       setEmailVia((result.emailVia as 'smtp' | 'resend' | 'emergent' | 'supabase' | 'none') || 'none')
     }
     setLoading(false)
@@ -78,6 +80,11 @@ export default function InviteButton({
                 ? '⚠️ L’envoi d’e-mail n’est pas configuré. Partagez ce lien avec votre client :'
                 : '⚠️ L’e-mail n’a pas pu être envoyé. Partagez ce lien avec votre client :'}
           </span>
+          {!emailSent && emailError && (
+            <span className="muted" style={{ fontSize: 12 }} data-testid="invite-email-error">
+              Détail : {emailError}
+            </span>
+          )}
           <input
             className="search auth-input"
             readOnly

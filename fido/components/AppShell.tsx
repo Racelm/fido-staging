@@ -34,6 +34,14 @@ export const NAV_ICONS = {
       <path d="M12 7v5l3 2" />
     </svg>
   ),
+  tva: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="3" width="16" height="18" rx="2" />
+      <path d="m9 15 6-6" />
+      <circle cx="9.5" cy="9.5" r="1" />
+      <circle cx="14.5" cy="14.5" r="1" />
+    </svg>
+  ),
   team: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
@@ -96,12 +104,13 @@ export function defaultNav(role: string, unreadMessages = 0): NavItem[] {
     { href: '/requests', label: 'Demandes', icon: NAV_ICONS.requests },
     { href: '/documents', label: 'Documents', icon: NAV_ICONS.documents },
     { href: '/deadlines', label: 'Échéances', icon: NAV_ICONS.deadlines },
+    { href: '/tva', label: 'TVA', icon: NAV_ICONS.tva },
     { href: '/team', label: 'Équipe', icon: NAV_ICONS.team },
     { href: '/messages', label: 'Messages', icon: NAV_ICONS.messages, badge: unreadMessages },
     { href: '/settings', label: 'Paramètres', icon: NAV_ICONS.settings },
   ]
   if (role === 'owner') {
-    items.splice(7, 0, { href: '/audit', label: 'Journal d’audit', icon: NAV_ICONS.audit })
+    items.splice(8, 0, { href: '/audit', label: 'Journal d’audit', icon: NAV_ICONS.audit })
   }
   return items
 }

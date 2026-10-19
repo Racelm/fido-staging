@@ -3,7 +3,14 @@
 import Link from 'next/link'
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { confirmField, rejectInvoice, reopenInvoice, saveInvoice, validateInvoice } from '@/app/actions/tva'
+import {
+  confirmField,
+  linkInvoiceDocument,
+  rejectInvoice,
+  reopenInvoice,
+  saveInvoice,
+  validateInvoice,
+} from '@/app/actions/tva'
 import type { ChampLigne } from '@/lib/tva/releve-deductions'
 import {
   ANOMALY_FIELD,
@@ -51,6 +58,7 @@ export default function InvoiceReview({
   anomalies,
   pdfUrl,
   suppliers,
+  linkableDocs = [],
   validAndUnchanged,
   closeHref,
 }: {
@@ -58,6 +66,7 @@ export default function InvoiceReview({
   anomalies: ReviewAnomaly[]
   pdfUrl: string | null
   suppliers: Supplier[]
+  linkableDocs?: { id: string; name: string }[]
   validAndUnchanged: boolean
   closeHref: string
 }) {
@@ -162,11 +171,45 @@ export default function InvoiceReview({
       <div className="tva-review">
         <div>
           {pdfUrl ? (
-            <iframe className="tva-pdf" src={pdfUrl} title="Facture PDF" />
+            <>
+              <iframe className="tva-pdf" src={pdfUrl} title="Facture PDF" />
+              {!locked && (
+                <div className="tva-actions" style={{ marginTop: 8 }}>
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    disabled={pending}
+                    onClick={() => run(() => linkInvoiceDocument(invoice.id, null), 'PDF détaché.')}
+                  >
+                    Détacher ce PDF
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
-            <div className="empty-state tva-pdf" style={{ display: 'grid', placeContent: 'center' }}>
+            <div className="empty-state tva-pdf" style={{ display: 'grid', placeContent: 'center', gap: 10, padding: 24 }}>
               <strong>Pas de PDF lié</strong>
-              <span>Ligne saisie manuellement.</span>
+              <span>Ligne saisie à la main. Rattachez la pièce justificative si vous l’avez.</span>
+              {!locked && linkableDocs.length > 0 && (
+                <select
+                  className="auth-input"
+                  defaultValue=""
+                  disabled={pending}
+                  aria-label="Rattacher un PDF"
+                  onChange={(e) => {
+                    const id = e.target.value
+                    if (id) run(() => linkInvoiceDocument(invoice.id, id), 'PDF rattaché.')
+                  }}
+                >
+                  <option value="">— Rattacher un document du client —</option>
+                  {linkableDocs.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              )}
+              {!locked && linkableDocs.length === 0 && (
+                <span className="section-sub">Aucun document libre pour ce client : déposez le PDF dans Documents.</span>
+              )}
             </div>
           )}
         </div>

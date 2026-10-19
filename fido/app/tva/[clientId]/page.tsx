@@ -15,6 +15,7 @@ import {
 import InvoiceReview, { type ReviewAnomaly } from './InvoiceReview'
 import ExportPanel from './ExportPanel'
 import CreateFromDocument from './CreateFromDocument'
+import NewInvoiceButton from './NewInvoiceButton'
 import ExportHistory from './ExportHistory'
 
 export const dynamic = 'force-dynamic'
@@ -83,11 +84,11 @@ export default async function TvaClientPage({
   const [{ data: purchaseDocs }, { data: linked }, { data: suppliers }, { data: exports }] = await Promise.all([
     supabase
       .from('documents')
-      .select('id,name,created_at,review_status')
+      .select('id,name,created_at,category,mime_type')
       .eq('client_id', clientId)
-      .eq('category', 'facture_achat')
       .is('deleted_at', null)
-      .order('created_at', { ascending: false }),
+      .order('created_at', { ascending: false })
+      .limit(200),
     supabase.from('purchase_invoices').select('document_id').eq('client_id', clientId).not('document_id', 'is', null),
     supabase.from('tva_suppliers').select('id,name,if_number,ice').eq('client_id', clientId).order('name'),
     supabase
@@ -98,7 +99,11 @@ export default async function TvaClientPage({
       .limit(20),
   ])
   const linkedIds = new Set((linked ?? []).map((l) => l.document_id))
-  const docsToEnter = (purchaseDocs ?? []).filter((d) => !linkedIds.has(d.id))
+  const docsToEnter = (purchaseDocs ?? []).filter((d) => d.category === 'facture_achat' && !linkedIds.has(d.id))
+  // PDF / images du client encore libres : rattachables à une ligne saisie à la main
+  const linkableDocs = (purchaseDocs ?? [])
+    .filter((d) => !linkedIds.has(d.id) && (!d.mime_type || d.mime_type === 'application/pdf' || d.mime_type.startsWith('image/')))
+    .map((d) => ({ id: d.id, name: d.name }))
 
   // Ligne sélectionnée
   const selectedId = sp.ligne
@@ -240,6 +245,7 @@ export default async function TvaClientPage({
             <h2 className="section-title">Lignes du relevé — {label}</h2>
             <p className="section-sub">Chaque ligne doit être vérifiée sur le PDF puis validée.</p>
           </div>
+          <NewInvoiceButton clientId={clientId} basePath={base} />
         </div>
         {s.rows.length ? (
           <table className="audit-table">
@@ -297,7 +303,10 @@ export default async function TvaClientPage({
         ) : (
           <div className="empty-state">
             <strong>Aucune facture payée sur cette période</strong>
-            <span>Saisissez les factures d’achat reçues ou changez de période.</span>
+            <span>
+              Cliquez sur « + Nouvelle facture » pour saisir une facture d’achat, ou déposez les PDF dans Documents
+              (catégorie « Facture achat »).
+            </span>
           </div>
         )}
       </section>
@@ -310,6 +319,7 @@ export default async function TvaClientPage({
             anomalies={selectedAnomalies}
             pdfUrl={pdfUrl}
             suppliers={suppliers ?? []}
+            linkableDocs={linkableDocs}
             validAndUnchanged={selectedValid}
             closeHref={base}
           />

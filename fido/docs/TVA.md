@@ -6,8 +6,8 @@
 3. Aucune dépendance npm ajoutée (le ZIP est écrit par `lib/tva/zip.ts`).
 
 ## Parcours fiduciaire (`/tva`)
-1. Les PDF classés « Facture achat » apparaissent dans « Factures d'achat reçues à saisir ».
-2. « Saisir / vérifier » ouvre le PDF à côté du formulaire.
+1. Les PDF classés « Facture achat » apparaissent dans « Factures d'achat reçues à saisir » ; « Saisir / vérifier » ouvre le PDF à côté du formulaire.
+2. Facture sans PDF (papier, WhatsApp) : bouton « + Nouvelle facture », puis rattacher le justificatif depuis les documents du client si disponible.
 3. Champs lus automatiquement avec une confiance < 95 % : surlignés, à **corriger ou confirmer**.
 4. Alertes (paiement hors période, espèces > 5 000 DH, doublon…) : à **accepter une par une**.
 5. « Valider la ligne » : signée par l'utilisateur connecté, empreinte SHA-256 stockée.

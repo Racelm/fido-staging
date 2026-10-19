@@ -91,6 +91,68 @@ export async function createInvoiceFromDocument(documentId: string): Promise<Res
   return { ok: true, id: data.id }
 }
 
+/**
+ * Crée une ligne vide saisie à la main (facture reçue sur papier, par WhatsApp…).
+ * Tous les champs sont saisis par le fiduciaire, donc considérés comme vérifiés ;
+ * la ligne reste « à vérifier » jusqu'à sa validation explicite.
+ */
+export async function createManualInvoice(clientId: string): Promise<Result<{ id: string }>> {
+  const ctx = await staffContext()
+  if ('error' in ctx) return { ok: false, error: ctx.error! }
+  const { supabase, user, profile } = ctx
+
+  const { data: client } = await supabase
+    .from('clients')
+    .select('id,organization_id')
+    .eq('id', clientId)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (!client || client.organization_id !== profile.organization_id) return { ok: false, error: 'Client introuvable.' }
+
+  const { data, error } = await supabase
+    .from('purchase_invoices')
+    .insert({ organization_id: client.organization_id, client_id: client.id, created_by: user.id })
+    .select('id')
+    .single()
+  if (error || !data) return { ok: false, error: error?.message ?? 'Création impossible.' }
+  revalidateClient(client.id)
+  return { ok: true, id: data.id }
+}
+
+/** Rattache (ou détache) le PDF justificatif d'une ligne saisie à la main */
+export async function linkInvoiceDocument(invoiceId: string, documentId: string | null): Promise<Result> {
+  const ctx = await staffContext()
+  if ('error' in ctx) return { ok: false, error: ctx.error! }
+  const { supabase } = ctx
+
+  const row = await getInvoice(supabase, invoiceId)
+  if (!row) return { ok: false, error: 'Facture introuvable.' }
+  if (row.export_id) return { ok: false, error: 'Facture déjà exportée : annulez l’export avant de la modifier.' }
+
+  if (documentId) {
+    const { data: doc } = await supabase
+      .from('documents')
+      .select('id,client_id')
+      .eq('id', documentId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!doc || doc.client_id !== row.client_id) return { ok: false, error: 'Document introuvable pour ce client.' }
+    const { data: used } = await supabase
+      .from('purchase_invoices')
+      .select('id')
+      .eq('document_id', documentId)
+      .is('deleted_at', null)
+      .neq('id', invoiceId)
+      .maybeSingle()
+    if (used) return { ok: false, error: 'Ce PDF est déjà rattaché à une autre ligne.' }
+  }
+
+  const { error } = await supabase.from('purchase_invoices').update({ document_id: documentId }).eq('id', invoiceId)
+  if (error) return { ok: false, error: error.message }
+  revalidateClient(row.client_id)
+  return { ok: true }
+}
+
 /* ------------------------------------------------------------------ */
 /* Saisie / correction                                                 */
 /* ------------------------------------------------------------------ */

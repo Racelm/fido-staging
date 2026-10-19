@@ -193,7 +193,8 @@ begin
 
   -- 4.a Facture exportée : verrouillée (seule l'annulation d'export la libère)
   if old.export_id is not null and new.export_id is not distinct from old.export_id then
-    if fiscal_changed or new.status is distinct from old.status or new.deleted_at is distinct from old.deleted_at then
+    if fiscal_changed or new.status is distinct from old.status or new.deleted_at is distinct from old.deleted_at
+       or new.document_id is distinct from old.document_id then
       raise exception 'Facture déjà exportée vers SIMPL-TVA : annulez l''export avant toute modification.';
     end if;
   end if;

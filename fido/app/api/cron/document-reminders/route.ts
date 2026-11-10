@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import {
-  documentReminderTemplate,
-  reminderEscalationTemplate,
-  sendEmailSafe,
-} from '@/lib/email'
-import { getClientEmail, getStaffEmails } from '@/lib/notify'
-import {
   currentPeriod,
   nextAction,
   periodLabel,
+  reminderMessage,
   todayInMorocco,
   weekdayInMorocco,
   type ReminderSettings,
@@ -27,14 +22,17 @@ import {
  *
  * Paramètre optionnel `?dry=1` : calcule tout, n'écrit et n'envoie rien.
  *
+ * Les rappels sont délivrés DANS Tiwizi (table `notifications` + bandeau dans
+ * l'espace client). Aucun e-mail n'est envoyé.
+ *
  * Étapes, pour chaque cabinet dont les relances sont activées :
  *   1. Crée la demande mensuelle « Factures d'achat et de vente – <mois> »
  *      pour chaque client actif (idempotent : index unique client+période).
- *   2. Pour chaque demande récurrente encore 'pending', envoie au plus UN
- *      message par client et par jour, selon le palier atteint.
- *   3. Après `escalate_days` jours de retard : plus de mail au client,
- *      alerte au cabinet (notification + e-mail).
- * Aucun envoi le samedi et le dimanche.
+ *   2. Pour chaque demande récurrente encore 'pending', crée au plus UNE
+ *      notification par client et par jour, selon le palier atteint.
+ *   3. Après `escalate_days` jours de retard : plus de rappel au client,
+ *      notification « À appeler » aux owners/staff du cabinet.
+ * Aucun rappel le samedi et le dimanche.
  */
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -49,7 +47,13 @@ type RequestRow = {
   due_date: string
   reminder_stage: number
   escalated_at: string | null
-  clients: { company_name: string; contact_name: string | null; reminders_paused: boolean; status: string }
+  clients: {
+    company_name: string
+    contact_name: string | null
+    profile_id: string | null
+    reminders_paused: boolean
+    status: string
+  }
 }
 
 export async function GET(req: NextRequest) {
@@ -71,8 +75,6 @@ export async function GET(req: NextRequest) {
   }
 
   const admin = createClient(url, serviceKey, { auth: { persistSession: false } })
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://fido.local'
-  const appName = process.env.EMAIL_FROM_NAME || 'Tiwizi'
 
   const { data: settingsRows, error: settingsErr } = await admin
     .from('reminder_settings')
@@ -95,7 +97,7 @@ export async function GET(req: NextRequest) {
   for (const settings of (settingsRows || []) as ReminderSettings[]) {
     report.organizations += 1
     try {
-      await processOrganization(admin, settings, { today, dry, appUrl, appName, report })
+      await processOrganization(admin, settings, { today, dry, report })
     } catch (err) {
       report.errors.push(`org ${settings.organization_id}: ${(err as Error).message}`)
     }
@@ -110,8 +112,6 @@ async function processOrganization(
   ctx: {
     today: string
     dry: boolean
-    appUrl: string
-    appName: string
     report: {
       requests_created: number
       client_reminders: number
@@ -182,7 +182,7 @@ async function processOrganization(
   const { data: pending, error: pendErr } = await admin
     .from('document_requests')
     .select(
-      'id, organization_id, client_id, period, due_date, reminder_stage, escalated_at, clients!inner(company_name, contact_name, reminders_paused, status)'
+      'id, organization_id, client_id, period, due_date, reminder_stage, escalated_at, clients!inner(company_name, contact_name, profile_id, reminders_paused, status)'
     )
     .eq('organization_id', orgId)
     .eq('is_recurring', true)
@@ -211,32 +211,32 @@ async function processOrganization(
     if (ctx.dry) continue
 
     if (action.kind === 'client') {
-      const to = await getClientEmail(r.client_id)
-      if (!to) {
-        await log(admin, r, action.stage, null, false, 'no client email')
+      // Le client n'a pas encore activé son compte Tiwizi : rien à afficher.
+      if (!r.clients.profile_id) {
+        await log(admin, r, action.stage, null, false, 'client sans compte Tiwizi')
         continue
       }
-      const { subject, html } = documentReminderTemplate({
-        stage: action.stage,
-        cabinetName,
-        recipientName: r.clients.contact_name || r.clients.company_name,
-        periodLabel: label,
-        dueDate: r.due_date,
-        appUrl: `${ctx.appUrl}/client`,
-        appName: ctx.appName,
+      const msg = reminderMessage(action.stage, { cabinetName, periodLabel: label, dueDate: r.due_date })
+      const { error: notifErr } = await admin.from('notifications').insert({
+        organization_id: orgId,
+        recipient_id: r.clients.profile_id,
+        type: 'document_reminder',
+        title: msg.title,
+        body: msg.body,
+        entity_type: 'document_request',
+        entity_id: r.id,
       })
-      const res = await sendEmailSafe({ to, subject, html })
-      await log(admin, r, action.stage, to, res.sent, res.error)
-      if (res.sent) {
-        await admin
-          .from('document_requests')
-          .update({ reminder_stage: action.stage, last_reminded_at: new Date().toISOString() })
-          .eq('id', r.id)
-          .eq('status', 'pending') // ne rien écraser si le client vient de déposer
-        report.client_reminders += 1
-      } else {
-        report.errors.push(`send ${r.id}: ${res.error}`)
+      await log(admin, r, action.stage, r.clients.profile_id, !notifErr, notifErr?.message)
+      if (notifErr) {
+        report.errors.push(`notify ${r.id}: ${notifErr.message}`)
+        continue
       }
+      await admin
+        .from('document_requests')
+        .update({ reminder_stage: action.stage, last_reminded_at: new Date().toISOString() })
+        .eq('id', r.id)
+        .eq('status', 'pending') // ne rien écraser si le client vient de déposer
+      report.client_reminders += 1
       continue
     }
 
@@ -246,32 +246,23 @@ async function processOrganization(
       .select('id')
       .eq('organization_id', orgId)
       .in('role', ['owner', 'staff'])
-    const title = `À appeler : ${r.clients.company_name}`
-    const body = `Documents de ${label} toujours manquants après ${r.reminder_stage} rappel(s).`
     if (staff?.length) {
-      await admin.from('notifications').insert(
+      const { error: escErr } = await admin.from('notifications').insert(
         staff.map((s) => ({
           organization_id: orgId,
           recipient_id: s.id,
           type: 'reminder_escalation',
-          title,
-          body,
+          title: `À appeler : ${r.clients.company_name}`,
+          body: `Documents de ${label} toujours manquants après ${r.reminder_stage} rappel(s) dans Tiwizi.`,
           entity_type: 'document_request',
           entity_id: r.id,
         }))
       )
-    }
-    const { subject, html } = reminderEscalationTemplate({
-      cabinetName,
-      clientCompany: r.clients.company_name,
-      periodLabel: label,
-      remindersSent: r.reminder_stage,
-      appUrl: `${ctx.appUrl}/requests`,
-      appName: ctx.appName,
-    })
-    for (const to of await getStaffEmails(orgId)) {
-      const res = await sendEmailSafe({ to, subject, html })
-      await log(admin, r, 5, to, res.sent, res.error)
+      await log(admin, r, 5, null, !escErr, escErr?.message)
+      if (escErr) {
+        report.errors.push(`escalate ${r.id}: ${escErr.message}`)
+        continue
+      }
     }
     await admin.from('document_requests').update({ escalated_at: new Date().toISOString() }).eq('id', r.id)
     report.escalations += 1
@@ -291,6 +282,7 @@ async function log(
     client_id: r.client_id,
     request_id: r.id,
     stage,
+    channel: 'in_app',
     recipient,
     ok,
     error: error || null,

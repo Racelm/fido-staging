@@ -81,8 +81,8 @@ export default async function SettingsPage() {
         <section className="card card-padded" style={{ marginTop: 16 }} data-testid="reminder-settings">
           <h2 className="section-title">Relances automatiques</h2>
           <p className="muted" style={{ margin: '4px 0 16px' }}>
-            Chaque mois, vos clients reçoivent une demande pour leurs factures d’achat et de vente,
-            puis des rappels jusqu’au dépôt. Sans réponse, vous êtes alerté pour les appeler.
+            Chaque mois, vos clients voient dans Tiwizi une demande pour leurs factures d’achat et de
+            vente, puis des rappels jusqu’au dépôt. Sans réponse, vous êtes alerté pour les appeler.
           </p>
           <ReminderSettingsForm
             initial={

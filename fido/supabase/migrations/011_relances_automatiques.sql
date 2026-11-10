@@ -4,7 +4,8 @@
 -- Chaque mois, une demande récurrente « Factures d'achat et de vente –
 -- <mois> » est créée pour chaque client actif. Tant qu'elle est en
 -- statut 'pending', le cron /api/cron/document-reminders relance le
--- client par paliers, puis alerte le cabinet.
+-- client par paliers DANS Tiwizi (notifications + bandeau de l'espace
+-- client, aucun e-mail), puis alerte le cabinet.
 --
 -- Arrêt automatique : dès qu'un document est déposé, le trigger existant
 -- mark_request_received passe la demande en 'received' → plus de relance.
@@ -72,8 +73,8 @@ create table if not exists public.reminder_log (
   client_id uuid not null references public.clients(id) on delete cascade,
   request_id uuid not null references public.document_requests(id) on delete cascade,
   stage smallint not null,           -- 1..4 = client, 5 = alerte cabinet
-  channel text not null default 'email',
-  recipient text,
+  channel text not null default 'in_app',
+  recipient text,                    -- profile_id destinataire (in_app)
   ok boolean not null,
   error text,
   created_at timestamptz not null default now()

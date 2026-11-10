@@ -49,8 +49,9 @@ export default function ReminderSettingsForm({ initial }: { initial: ReminderSet
       </label>
 
       <p className="muted" style={{ fontSize: 12, margin: 0 }}>
-        Les messages partent au nom de votre cabinet, au plus un par client et par jour, jamais le week-end.
-        Ils s’arrêtent dès que le client dépose un document.
+        Les rappels s’affichent dans l’espace Tiwizi de vos clients, au nom de votre cabinet : au plus un
+        par client et par jour, jamais le week-end. Aucun e-mail n’est envoyé. Ils s’arrêtent dès que le
+        client dépose un document.
       </p>
 
       {state.error && <p className="auth-error">{state.error}</p>}

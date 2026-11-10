@@ -91,3 +91,42 @@ export function nextAction(params: {
 
   return target > currentStage ? { kind: 'client', stage: target } : { kind: 'none' }
 }
+
+/** « 10 novembre 2026 » à partir de YYYY-MM-DD. */
+export function frenchDate(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  return `${d} ${MONTHS.at(m - 1)} ${y}`
+}
+
+/**
+ * Texte du rappel affiché dans Tiwizi (notification + bandeau espace client).
+ * 1 = annonce, 2 = J-n, 3 = jour J, 4 = en retard.
+ */
+export function reminderMessage(
+  stage: number,
+  p: { cabinetName: string; periodLabel: string; dueDate: string }
+): { title: string; body: string } {
+  const due = frenchDate(p.dueDate)
+  switch (stage) {
+    case 1:
+      return {
+        title: `Documents de ${p.periodLabel} à déposer`,
+        body: `${p.cabinetName} attend vos factures d’achat et de vente de ${p.periodLabel} avant le ${due}.`,
+      }
+    case 2:
+      return {
+        title: `Rappel : documents de ${p.periodLabel}`,
+        body: `Nous n’avons pas encore reçu vos documents de ${p.periodLabel}. Date limite : ${due}.`,
+      }
+    case 3:
+      return {
+        title: `Aujourd’hui : date limite pour ${p.periodLabel}`,
+        body: `C’est aujourd’hui la date limite pour déposer vos documents de ${p.periodLabel}.`,
+      }
+    default:
+      return {
+        title: `Documents de ${p.periodLabel} en retard`,
+        body: `Vos documents de ${p.periodLabel} sont toujours attendus (date limite : ${due}). Sans eux, ${p.cabinetName} ne peut pas préparer votre déclaration à temps.`,
+      }
+  }
+}

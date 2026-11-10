@@ -4,6 +4,8 @@ import { signOut } from '@/app/actions/auth'
 import ClientUpload from './ClientUpload'
 import MessageForm from './MessageForm'
 import ReviewBadge from '@/app/documents/ReviewBadge'
+import { firstRel } from '@/lib/rel'
+import { periodLabel, reminderMessage } from '@/lib/reminders'
 
 export default async function ClientPage() {
   const supabase = await createClient()
@@ -49,7 +51,7 @@ export default async function ClientPage() {
   const [{ data: requests }, { data: documents }, { data: messages }] = await Promise.all([
     supabase
       .from('document_requests')
-      .select('id,title,description,status,due_date,created_at')
+      .select('id,title,description,status,due_date,created_at,is_recurring,period,reminder_stage')
       .eq('client_id', client.id)
       .order('created_at', { ascending: false })
       .limit(20),
@@ -69,6 +71,20 @@ export default async function ClientPage() {
   ])
 
   const pending = requests?.filter((r) => r.status === 'pending').length || 0
+
+  // Rappels actifs : demandes mensuelles en attente déjà relancées par Tiwizi
+  const cabinetName = firstRel(profile.organizations)?.name || 'Votre cabinet'
+  const reminders = (requests || [])
+    .filter((r) => r.is_recurring && r.status === 'pending' && r.reminder_stage > 0 && r.period && r.due_date)
+    .map((r) => ({
+      id: r.id,
+      late: r.reminder_stage >= 4,
+      ...reminderMessage(r.reminder_stage, {
+        cabinetName,
+        periodLabel: periodLabel(r.period as string),
+        dueDate: r.due_date as string,
+      }),
+    }))
 
   return (
     <div className="shell narrow">
@@ -126,6 +142,27 @@ export default async function ClientPage() {
           <div />
           <div />
         </header>
+
+        {reminders.map((r) => (
+          <a
+            key={r.id}
+            href="#demandes"
+            data-testid="client-reminder-banner"
+            className="card card-padded"
+            style={{
+              display: 'block',
+              marginBottom: 16,
+              textDecoration: 'none',
+              color: 'inherit',
+              borderLeft: `4px solid ${r.late ? '#e17055' : '#6c5ce7'}`,
+            }}
+          >
+            <div className="eyebrow">Rappel de {cabinetName}</div>
+            <strong style={{ display: 'block', fontSize: 16, margin: '4px 0' }}>{r.title}</strong>
+            <span className="muted">{r.body}</span>
+            <span style={{ display: 'block', marginTop: 8, fontWeight: 600 }}>Déposer mes documents →</span>
+          </a>
+        ))}
 
         <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
           <article className="kpi k-violet">

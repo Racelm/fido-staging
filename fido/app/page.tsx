@@ -180,6 +180,13 @@ export default async function DashboardPage() {
   const newDocsDelta = newDocs - (docsYdayCountRes.count ?? 0)
   const newMsgsDelta = newMsgs - (msgsYdayRes.count ?? 0)
 
+  const { count: escalationCount } = await supabase
+    .from('notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('recipient_id', user.id)
+    .eq('type', 'reminder_escalation')
+    .is('read_at', null)
+
   // "Que dois-je faire maintenant ?" — 5 requests triées par urgence (pending d'abord, due_date asc)
   const { data: todoRaw } = await supabase
     .from('document_requests')
@@ -300,7 +307,7 @@ export default async function DashboardPage() {
       title="Tableau de bord"
       welcome={`Bienvenue, ${firstName} ! 👋`}
       unreadMessages={newMsgs}
-      notificationCount={overdueDeadlines + newMsgs}
+      notificationCount={overdueDeadlines + newMsgs + (escalationCount ?? 0)}
       rail={rail}
     >
       <div className="kpi-grid" data-testid="dashboard-kpis">

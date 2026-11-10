@@ -595,3 +595,91 @@ export function documentRejectedTemplate(params: {
     ),
   }
 }
+
+/* -------------------------------------------------------------------------- */
+/*                     Relances automatiques (migration 011)                   */
+/* -------------------------------------------------------------------------- */
+
+export type ReminderStage = 1 | 2 | 3 | 4
+
+function frenchDate(iso: string): string {
+  return new Date(iso + 'T00:00:00Z').toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  })
+}
+
+/**
+ * Relance client, envoyée au nom du cabinet.
+ * 1 = annonce, 2 = J-n, 3 = jour J, 4 = en retard.
+ */
+export function documentReminderTemplate(params: {
+  stage: ReminderStage
+  cabinetName: string
+  recipientName: string
+  periodLabel: string // ex. « octobre 2026 »
+  dueDate: string // YYYY-MM-DD
+  appUrl: string
+  appName: string
+}): { subject: string; html: string } {
+  const cab = escapeHtml(params.cabinetName)
+  const period = escapeHtml(params.periodLabel)
+  const due = escapeHtml(frenchDate(params.dueDate))
+
+  const subjects: Record<ReminderStage, string> = {
+    1: `${params.periodLabel} – documents à transmettre à ${params.cabinetName}`,
+    2: `Rappel : vos documents de ${params.periodLabel}`,
+    3: `Aujourd’hui : date limite pour vos documents de ${params.periodLabel}`,
+    4: `Documents de ${params.periodLabel} en attente`,
+  }
+  const lines: Record<ReminderStage, string> = {
+    1: `<p>Pour préparer votre comptabilité de <strong>${period}</strong>, merci de déposer vos factures d’achat et de vente avant le <strong>${due}</strong>.</p>`,
+    2: `<p>Petit rappel : nous n’avons pas encore reçu vos documents de <strong>${period}</strong>. La date limite est le <strong>${due}</strong>.</p>`,
+    3: `<p>C’est aujourd’hui la date limite pour transmettre vos documents de <strong>${period}</strong>. Cela nous permet de respecter vos échéances fiscales sans retard.</p>`,
+    4: `<p>Vos documents de <strong>${period}</strong> sont toujours en attente. Sans eux, nous ne pourrons pas préparer votre déclaration dans les délais.</p><p>Si vous rencontrez une difficulté, répondez simplement à ce message.</p>`,
+  }
+
+  const body = `
+    <p>Bonjour ${escapeHtml(params.recipientName)},</p>
+    ${lines[params.stage]}
+    <p style="text-align:center;margin:24px 0">
+      <a href="${params.appUrl}" style="display:inline-block;padding:12px 20px;background:#6c5ce7;color:#ffffff;text-decoration:none;border-radius:10px;font-weight:600">Déposer mes documents</a>
+    </p>
+    <p style="color:#64748b;font-size:13px">Vous pouvez aussi prendre vos factures en photo depuis votre téléphone.</p>
+    <p>Cordialement,<br/>${cab}</p>
+  `
+  return {
+    subject: subjects[params.stage],
+    html: baseLayout(
+      body,
+      params.cabinetName,
+      `Message envoyé par ${params.cabinetName} via ${params.appName}. Pour ne plus recevoir ces rappels, répondez « STOP » à ce message.`
+    ),
+  }
+}
+
+/** Alerte au cabinet : le client n'a toujours rien envoyé après les relances. */
+export function reminderEscalationTemplate(params: {
+  cabinetName: string
+  clientCompany: string
+  periodLabel: string
+  remindersSent: number
+  appUrl: string
+  appName: string
+}): { subject: string; html: string } {
+  const subject = `À appeler : ${params.clientCompany} n’a pas transmis ses documents de ${params.periodLabel}`
+  const body = `
+    <p>Bonjour,</p>
+    <p><strong>${escapeHtml(params.clientCompany)}</strong> n’a toujours pas transmis ses documents de <strong>${escapeHtml(params.periodLabel)}</strong> (${params.remindersSent} rappel(s) envoyé(s)).</p>
+    <p>Les relances automatiques sont arrêtées pour ce client. Nous vous conseillons de l’appeler.</p>
+    <p style="text-align:center;margin:24px 0">
+      <a href="${params.appUrl}" style="display:inline-block;padding:12px 20px;background:#6c5ce7;color:#ffffff;text-decoration:none;border-radius:10px;font-weight:600">Voir la demande</a>
+    </p>
+  `
+  return {
+    subject,
+    html: baseLayout(body, params.appName, `Alerte automatique ${params.appName} pour ${params.cabinetName}.`),
+  }
+}

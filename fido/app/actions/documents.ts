@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { documentReceivedTemplate, documentRejectedTemplate, sendEmail } from '@/lib/email'
 import { getClientEmail, sendToMany } from '@/lib/notify'
+import { CATEGORY_LABEL } from '@/lib/document-folders'
 
 const MAX_SIZE = 25 * 1024 * 1024 // 25 MB
 const ALLOWED_MIME = new Set([
@@ -243,5 +244,55 @@ export async function reviewDocument(
   revalidatePath('/client')
   revalidatePath('/audit')
   if (doc?.client_id) revalidatePath(`/clients/${doc.client_id}`)
+  return { success: true }
+}
+
+/**
+ * Range un document dans un autre dossier en changeant sa catégorie.
+ * Réservé au cabinet (owner/staff) ; la RLS « staff can update documents »
+ * limite déjà la modification aux documents du cabinet.
+ */
+export async function setDocumentCategory(
+  documentId: string,
+  category: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!(Object.keys(CATEGORY_LABEL) as string[]).includes(category)) {
+    return { success: false, error: 'Catégorie inconnue.' }
+  }
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'Session expirée.' }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role, organization_id')
+    .eq('id', user.id)
+    .single()
+  if (!profile || !['owner', 'staff'].includes(profile.role)) {
+    return { success: false, error: 'Accès réservé au cabinet.' }
+  }
+
+  const { data: doc, error } = await supabase
+    .from('documents')
+    .update({ category })
+    .eq('id', documentId)
+    .eq('organization_id', profile.organization_id)
+    .select('id, client_id, organization_id, name')
+    .single()
+  if (error || !doc) return { success: false, error: error?.message || 'Document introuvable.' }
+
+  await supabase.rpc('log_audit_event', {
+    p_action: 'document.recategorize',
+    p_entity_type: 'document',
+    p_entity_id: doc.id,
+    p_organization_id: doc.organization_id,
+    p_meta: { name: doc.name, category },
+  })
+
+  revalidatePath(`/clients/${doc.client_id}`)
+  revalidatePath('/client')
+  revalidatePath('/documents')
   return { success: true }
 }

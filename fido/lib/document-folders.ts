@@ -19,6 +19,24 @@ export type DocumentCategory =
   | 'is_ir'
   | 'autre'
 
+/** Libellés lisibles des catégories (sous-dossiers du dossier « Juridique »). */
+export const CATEGORY_LABEL: Record<DocumentCategory, string> = {
+  piece_comptable: 'Pièce comptable',
+  facture_achat: 'Facture d’achat',
+  facture_vente: 'Facture de vente',
+  releve_bancaire: 'Relevé bancaire',
+  contrat: 'Contrat',
+  statuts: 'Statuts',
+  proces_verbal: 'PV / Procès-verbal',
+  cin: 'CIN',
+  registre_commerce: 'Registre de commerce',
+  ice_if: 'ICE / IF',
+  cnss: 'CNSS',
+  tva: 'Déclaration TVA',
+  is_ir: 'IS / IR',
+  autre: 'Autre',
+}
+
 export type FolderKey =
   | 'achats'
   | 'ventes'

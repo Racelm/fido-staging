@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { firstRel } from '@/lib/rel'
 import { createClient } from '@/lib/supabase/server'
 import AppShell from '@/components/AppShell'
+import ReminderSettingsForm from './ReminderSettingsForm'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -16,6 +17,15 @@ export default async function SettingsPage() {
     .eq('id', user.id)
     .single()
   if (!profile) redirect('/login')
+
+  const isStaff = profile.role === 'owner' || profile.role === 'staff'
+  const { data: reminderSettings } = isStaff && profile.organization_id
+    ? await supabase
+        .from('reminder_settings')
+        .select('enabled, due_day, before_days, overdue_days, escalate_days')
+        .eq('organization_id', profile.organization_id)
+        .maybeSingle()
+    : { data: null }
 
   const roleLabel =
     profile.role === 'owner'
@@ -67,10 +77,31 @@ export default async function SettingsPage() {
         </section>
       </div>
 
+      {isStaff && (
+        <section className="card card-padded" style={{ marginTop: 16 }} data-testid="reminder-settings">
+          <h2 className="section-title">Relances automatiques</h2>
+          <p className="muted" style={{ margin: '4px 0 16px' }}>
+            Chaque mois, vos clients voient dans Tiwizi une demande pour leurs factures d’achat et de
+            vente, puis des rappels jusqu’au dépôt. Sans réponse, vous êtes alerté pour les appeler.
+          </p>
+          <ReminderSettingsForm
+            initial={
+              reminderSettings ?? {
+                enabled: false,
+                due_day: 10,
+                before_days: 3,
+                overdue_days: 3,
+                escalate_days: 7,
+              }
+            }
+          />
+        </section>
+      )}
+
       <section className="card card-padded" style={{ marginTop: 16 }}>
         <h2 className="section-title">À venir</h2>
         <p className="muted">
-          Gestion des collaborateurs, 2FA, personnalisation des rappels et export loi 09-08
+          Gestion des collaborateurs, 2FA et export loi 09-08
           arrivent dans les prochaines phases.
         </p>
       </section>

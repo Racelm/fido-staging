@@ -8,13 +8,18 @@ import MessageForm from '@/app/client/MessageForm'
 import DownloadButton from '@/app/documents/DownloadButton'
 import ReviewBadge from '@/app/documents/ReviewBadge'
 import ReviewButtons from '@/app/documents/ReviewButtons'
+import FolderGrid from '@/components/FolderGrid'
+import { findFolder, folderOf, summarizeFolders } from '@/lib/document-folders'
 
 export default async function ClientDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ dossier?: string }>
 }) {
   const { id } = await params
+  const openFolder = findFolder((await searchParams).dossier)
   const supabase = await createClient()
   const {
     data: { user },
@@ -52,7 +57,7 @@ export default async function ClientDetailPage({
       .eq('client_id', id)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
-      .limit(10),
+      .limit(1000),
     supabase
       .from('messages')
       .select('id,body,created_at,sender_id')
@@ -69,7 +74,11 @@ export default async function ClientDetailPage({
       .maybeSingle(),
   ])
   const requests = reqRes.data || []
-  const documents = docRes.data || []
+  const allDocuments = docRes.data || []
+  const folders = summarizeFolders(allDocuments)
+  const documents = openFolder
+    ? allDocuments.filter((d) => folderOf(d.category) === openFolder.key)
+    : []
   const messages = msgRes.data || []
   const invitation = invRes.data
 
@@ -159,38 +168,59 @@ export default async function ClientDetailPage({
         </section>
       </div>
 
-      <div className="content-grid" style={{ marginTop: 16 }}>
-        <section className="card">
-          <div className="section-head">
-            <div>
-              <h2 className="section-title">Documents récents</h2>
-              <p className="section-sub">{documents.length} fichier(s)</p>
-            </div>
+      <section className="card" id="documents" style={{ marginTop: 16 }}>
+        <div className="section-head">
+          <div>
+            {openFolder ? (
+              <>
+                <Link href={`/clients/${client.id}#documents`} className="folder-back" scroll={false}>
+                  ← Tous les dossiers
+                </Link>
+                <h2 className="section-title" style={{ marginTop: 6 }}>
+                  {openFolder.icon} {openFolder.label}
+                </h2>
+                <p className="section-sub">{documents.length} fichier(s)</p>
+              </>
+            ) : (
+              <>
+                <h2 className="section-title">Dossiers du client</h2>
+                <p className="section-sub">{allDocuments.length} document(s) classés par dossier</p>
+              </>
+            )}
           </div>
-          {documents.length ? documents.map(d => (
-            <div className="mini-row" key={d.id} style={{ padding: '12px 22px' }}>
-              <div className="mini-row-top">
-                <strong>{d.name}</strong>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <ReviewBadge status={d.review_status as string} size="sm" />
-                  <DownloadButton documentId={d.id} />
+        </div>
+        {openFolder ? (
+          <>
+            {documents.length ? documents.map(d => (
+              <div className="mini-row" key={d.id} style={{ padding: '12px 22px' }}>
+                <div className="mini-row-top">
+                  <strong>{d.name}</strong>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <ReviewBadge status={d.review_status as string} size="sm" />
+                    <DownloadButton documentId={d.id} />
+                  </div>
+                </div>
+                <div className="mini-row-sub">
+                  v{d.version ?? 1} · {d.size_bytes ? `${Math.round(d.size_bytes / 1024)} Ko` : '—'} · {new Date(d.created_at).toLocaleDateString('fr-FR')}
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <ReviewButtons
+                    documentId={d.id}
+                    currentStatus={(d.review_status as 'pending_review' | 'approved' | 'rejected') || 'pending_review'}
+                    compact
+                  />
                 </div>
               </div>
-              <div className="mini-row-sub">
-                v{d.version ?? 1} · {d.size_bytes ? `${Math.round(d.size_bytes / 1024)} Ko` : '—'} · {new Date(d.created_at).toLocaleDateString('fr-FR')}
-              </div>
-              <div style={{ marginTop: 8 }}>
-                <ReviewButtons
-                  documentId={d.id}
-                  currentStatus={(d.review_status as 'pending_review' | 'approved' | 'rejected') || 'pending_review'}
-                  compact
-                />
-              </div>
-            </div>
-          )) : (
-            <div className="empty-state"><strong>Aucun document</strong><span>Rien reçu pour l’instant.</span></div>
-          )}
-        </section>
+            )) : (
+              <div className="empty-state"><strong>Dossier vide</strong><span>Aucun document dans ce dossier pour l’instant.</span></div>
+            )}
+          </>
+        ) : (
+          <FolderGrid folders={folders} baseHref={`/clients/${client.id}`} showReview />
+        )}
+      </section>
+
+      <div style={{ marginTop: 16 }}>
         <section className="card card-padded">
           <h2 className="section-title">Conversation</h2>
           <p className="muted" style={{ margin: '4px 0 12px' }}>Dernière activité sur ce dossier.</p>

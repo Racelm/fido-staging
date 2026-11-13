@@ -4,8 +4,15 @@ import { signOut } from '@/app/actions/auth'
 import ClientUpload from './ClientUpload'
 import MessageForm from './MessageForm'
 import ReviewBadge from '@/app/documents/ReviewBadge'
+import FolderGrid from '@/components/FolderGrid'
+import { findFolder, folderOf, summarizeFolders } from '@/lib/document-folders'
 
-export default async function ClientPage() {
+export default async function ClientPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ dossier?: string }>
+}) {
+  const openFolder = findFolder((await searchParams).dossier)
   const supabase = await createClient()
   const {
     data: { user },
@@ -55,11 +62,11 @@ export default async function ClientPage() {
       .limit(20),
     supabase
       .from('documents')
-      .select('id,name,mime_type,size_bytes,version,review_status,review_note,created_at')
+      .select('id,name,mime_type,size_bytes,category,version,review_status,review_note,created_at')
       .eq('client_id', client.id)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
-      .limit(20),
+      .limit(1000),
     supabase
       .from('messages')
       .select('id,body,created_at,sender_id')
@@ -69,6 +76,10 @@ export default async function ClientPage() {
   ])
 
   const pending = requests?.filter((r) => r.status === 'pending').length || 0
+  const folders = summarizeFolders(documents || [])
+  const folderDocs = openFolder
+    ? (documents || []).filter((d) => folderOf(d.category) === openFolder.key)
+    : []
 
   return (
     <div className="shell narrow">
@@ -197,12 +208,34 @@ export default async function ClientPage() {
         <section id="documents" className="card" style={{ marginTop: 16 }}>
           <div className="section-head">
             <div>
-              <h2 className="section-title">Mes documents envoyés</h2>
-              <p className="section-sub">{documents?.length || 0} fichier(s)</p>
+              {openFolder ? (
+                <>
+                  <a href="/client#documents" className="folder-back">← Tous mes dossiers</a>
+                  <h2 className="section-title" style={{ marginTop: 6 }}>
+                    {openFolder.icon} {openFolder.label}
+                  </h2>
+                  <p className="section-sub">{folderDocs.length} fichier(s)</p>
+                </>
+              ) : (
+                <>
+                  <h2 className="section-title">Mes dossiers</h2>
+                  <p className="section-sub">Ouvrez un dossier pour voir ou ajouter des documents</p>
+                </>
+              )}
             </div>
           </div>
-          {documents?.length ? (
-            documents.map((d) => (
+          {openFolder ? (
+            <>
+              <div style={{ padding: '0 22px 16px' }}>
+                <ClientUpload
+                  key={openFolder.key}
+                  clientId={client.id}
+                  organizationId={client.organization_id}
+                  defaultCategory={openFolder.categories[0]}
+                />
+              </div>
+              {folderDocs.length ? (
+                folderDocs.map((d) => (
               <div className="client-row" key={d.id}>
                 <div className="client-avatar">▣</div>
                 <div className="client-info" style={{ flex: 1 }}>
@@ -230,12 +263,16 @@ export default async function ClientPage() {
                 </div>
                 <ReviewBadge status={d.review_status as string} size="sm" />
               </div>
-            ))
+                ))
+              ) : (
+                <div className="empty-state">
+                  <strong>Dossier vide</strong>
+                  <span>Les fichiers que vous déposez ici apparaîtront dans ce dossier.</span>
+                </div>
+              )}
+            </>
           ) : (
-            <div className="empty-state">
-              <strong>Aucun document</strong>
-              <span>Les fichiers que vous envoyez apparaîtront ici.</span>
-            </div>
+            <FolderGrid folders={folders} baseHref="/client" />
           )}
         </section>
 

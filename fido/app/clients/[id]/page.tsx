@@ -9,6 +9,7 @@ import DownloadButton from '@/app/documents/DownloadButton'
 import ReviewBadge from '@/app/documents/ReviewBadge'
 import ReviewButtons from '@/app/documents/ReviewButtons'
 import FolderGrid from '@/components/FolderGrid'
+import MoveDocumentSelect from '@/app/documents/MoveDocumentSelect'
 import { findFolder, folderOf, summarizeFolders } from '@/lib/document-folders'
 
 export default async function ClientDetailPage({
@@ -203,12 +204,13 @@ export default async function ClientDetailPage({
                 <div className="mini-row-sub">
                   v{d.version ?? 1} · {d.size_bytes ? `${Math.round(d.size_bytes / 1024)} Ko` : '—'} · {new Date(d.created_at).toLocaleDateString('fr-FR')}
                 </div>
-                <div style={{ marginTop: 8 }}>
+                <div style={{ marginTop: 8, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
                   <ReviewButtons
                     documentId={d.id}
                     currentStatus={(d.review_status as 'pending_review' | 'approved' | 'rejected') || 'pending_review'}
                     compact
                   />
+                  <MoveDocumentSelect documentId={d.id} category={d.category as string | null} />
                 </div>
               </div>
             )) : (

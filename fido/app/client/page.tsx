@@ -55,13 +55,27 @@ export default async function ClientPage({
     )
   }
 
-  const [{ data: requests }, { data: documents }, { data: messages }] = await Promise.all([
+  type RequestRow = {
+    id: string
+    title: string
+    description: string | null
+    status: string
+    due_date: string | null
+    created_at: string
+    is_recurring?: boolean
+    period?: string | null
+    reminder_stage?: number
+  }
+  const requestsQuery = (cols: string) =>
     supabase
       .from('document_requests')
-      .select('id,title,description,status,due_date,created_at,is_recurring,period,reminder_stage')
+      .select(cols)
       .eq('client_id', client.id)
       .order('created_at', { ascending: false })
-      .limit(20),
+      .limit(20)
+
+  const [reqRes, { data: documents }, { data: messages }] = await Promise.all([
+    requestsQuery('id,title,description,status,due_date,created_at,is_recurring,period,reminder_stage'),
     supabase
       .from('documents')
       .select('id,name,mime_type,size_bytes,category,version,review_status,review_note,created_at')
@@ -77,6 +91,15 @@ export default async function ClientPage({
       .limit(50),
   ])
 
+  // Si la migration 011 (relances) n'est pas encore appliquée, ces colonnes
+  // n'existent pas : on recharge sans elles pour que l'espace client
+  // (demandes, dossiers) reste utilisable.
+  let requests = reqRes.data as unknown as RequestRow[] | null
+  if (reqRes.error) {
+    const fallback = await requestsQuery('id,title,description,status,due_date,created_at')
+    requests = fallback.data as unknown as RequestRow[] | null
+  }
+
   const pending = requests?.filter((r) => r.status === 'pending').length || 0
   const folders = summarizeFolders(documents || [])
   const folderDocs = openFolder
@@ -86,11 +109,11 @@ export default async function ClientPage({
   // Rappels actifs : demandes mensuelles en attente déjà relancées par Tiwizi
   const cabinetName = firstRel(profile.organizations)?.name || 'Votre cabinet'
   const reminders = (requests || [])
-    .filter((r) => r.is_recurring && r.status === 'pending' && r.reminder_stage > 0 && r.period && r.due_date)
+    .filter((r) => r.is_recurring && r.status === 'pending' && (r.reminder_stage ?? 0) > 0 && r.period && r.due_date)
     .map((r) => ({
       id: r.id,
-      late: r.reminder_stage >= 4,
-      ...reminderMessage(r.reminder_stage, {
+      late: (r.reminder_stage ?? 0) >= 4,
+      ...reminderMessage(r.reminder_stage ?? 0, {
         cabinetName,
         periodLabel: periodLabel(r.period as string),
         dueDate: r.due_date as string,

@@ -94,6 +94,7 @@ export function defaultNav(role: string, unreadMessages = 0): NavItem[] {
     { href: '/', label: 'Tableau de bord', icon: NAV_ICONS.dashboard },
     { href: '/clients', label: 'Dossiers clients', icon: NAV_ICONS.clients },
     { href: '/requests', label: 'Demandes', icon: NAV_ICONS.requests },
+    { href: '/suivi', label: 'Suivi mensuel', icon: NAV_ICONS.deadlines },
     { href: '/documents', label: 'Documents', icon: NAV_ICONS.documents },
     { href: '/deadlines', label: 'Échéances', icon: NAV_ICONS.deadlines },
     { href: '/team', label: 'Équipe', icon: NAV_ICONS.team },
@@ -101,7 +102,8 @@ export function defaultNav(role: string, unreadMessages = 0): NavItem[] {
     { href: '/settings', label: 'Paramètres', icon: NAV_ICONS.settings },
   ]
   if (role === 'owner') {
-    items.splice(7, 0, { href: '/audit', label: 'Journal d’audit', icon: NAV_ICONS.audit })
+    const settingsIdx = items.findIndex((i) => i.href === '/settings')
+    items.splice(settingsIdx, 0, { href: '/audit', label: 'Journal d’audit', icon: NAV_ICONS.audit })
   }
   return items
 }
